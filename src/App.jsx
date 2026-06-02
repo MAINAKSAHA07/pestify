@@ -348,17 +348,19 @@ function App() {
                   cta: 'Treat Ticks',
                 },
               ].map((s) => (
-                <article key={s.title} className="reveal cardX p-6 transition hover:-translate-y-0.5 hover:shadow-lift">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="grid h-12 w-12 place-items-center rounded-xl bg-eco/15 text-xl ring-1 ring-black/5">
-                        <span aria-hidden="true">{s.icon}</span>
+                <article key={s.title} className="reveal cardX p-6 transition hover:-translate-y-0.5 hover:shadow-lift flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="grid h-12 w-12 place-items-center rounded-xl bg-eco/15 text-xl ring-1 ring-black/5">
+                          <span aria-hidden="true">{s.icon}</span>
+                        </div>
+                        <h3 className="mt-4 text-lg font-semibold">{s.title}</h3>
                       </div>
-                      <h3 className="mt-4 text-lg font-semibold">{s.title}</h3>
+                      <span className="pillX bg-lime/70 text-forest">Safe</span>
                     </div>
-                    <span className="pillX bg-lime/70 text-forest">Safe</span>
+                    <p className="mt-3 text-sm leading-relaxed text-ink/70">{s.text}</p>
                   </div>
-                  <p className="mt-3 text-sm leading-relaxed text-ink/70">{s.text}</p>
                   <a className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-green hover:text-forest" href="#contact">
                     {s.cta} <span aria-hidden="true">→</span>
                   </a>
@@ -646,7 +648,7 @@ function App() {
                 },
                 { q: 'Good doorstep service and polite technicians. The mosquito problem reduced noticeably after the treatment.', n: 'Amit K.', l: 'Navi Mumbai' },
               ].map((t) => (
-                <figure key={t.n} className="reveal cardX p-6">
+                <figure key={t.n} className="reveal cardX p-6 flex flex-col justify-between">
                   <blockquote className="text-sm leading-relaxed text-ink/80">“{t.q}”</blockquote>
                   <figcaption className="mt-5 text-sm">
                     <span className="font-semibold text-forest">{t.n}</span> <span className="text-ink/60">• {t.l}</span>
