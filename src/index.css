@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-cream text-ink font-sans antialiased;
+  }
+}
+
+@layer components {
+  .containerX {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .cardX {
+    @apply rounded-xl2 border border-black/5 bg-white/70 shadow-premium backdrop-blur;
+  }
+
+  .btnX {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-cream;
+  }
+
+  .btnPrimary {
+    @apply btnX bg-urgent text-white shadow-md hover:translate-y-[-1px] hover:shadow-lift active:translate-y-0;
+  }
+
+  .btnGhost {
+    @apply btnX bg-white/10 text-cream ring-1 ring-white/25 hover:bg-white/15;
+  }
+
+  .btnLight {
+    @apply btnX bg-forest text-cream ring-1 ring-white/10 hover:bg-green;
+  }
+
+  .pillX {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-black/10;
+  }
+
+  .reveal {
+    @apply opacity-0 translate-y-3;
+  }
+
+  .reveal.is-in {
+    @apply opacity-100 translate-y-0;
+    transition: opacity 600ms ease, transform 600ms ease;
+  }
+
+  .tickerTrack {
+    animation: ticker 22s linear infinite;
+  }
+
+  @keyframes ticker {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal,
+    .reveal.is-in {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+    .tickerTrack {
+      animation: none !important;
+    }
+  }
+}
