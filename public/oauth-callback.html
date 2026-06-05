@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Signing in… | Pestyfi</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #f5f0e8;
+        color: #0d1f17;
+      }
+      .box {
+        text-align: center;
+        padding: 2rem;
+      }
+      .err {
+        color: #c84b00;
+        max-width: 420px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <p id="status">Completing Google sign-in…</p>
+      <p id="error" class="err" hidden></p>
+    </div>
+    <script type="module">
+      import PocketBase from 'https://cdn.jsdelivr.net/npm/pocketbase@0.21.5/+esm'
+
+      const status = document.getElementById('status')
+      const errorEl = document.getElementById('error')
+
+      try {
+        const pbUrl = localStorage.getItem('pestyfi_pb_url')
+        const providerRaw = localStorage.getItem('pestyfi_oauth_provider')
+        const redirectURL = localStorage.getItem('pestyfi_oauth_redirect')
+
+        if (!pbUrl || !providerRaw || !redirectURL) {
+          throw new Error('Login session expired. Close this tab and try again from the website.')
+        }
+
+        const params = new URLSearchParams(window.location.search)
+        if (params.get('error')) {
+          throw new Error(params.get('error_description') || params.get('error'))
+        }
+
+        const code = params.get('code')
+        const state = params.get('state')
+        if (!code) throw new Error('No authorization code received from Google.')
+
+        const provider = JSON.parse(providerRaw)
+        if (provider.state && state && provider.state !== state) {
+          throw new Error('Security check failed (state mismatch). Please try again.')
+        }
+
+        const pb = new PocketBase(pbUrl)
+        await pb.collection('users').authWithOAuth2Code(
+          provider.name,
+          code,
+          provider.codeVerifier,
+          redirectURL,
+          { emailVisibility: false },
+        )
+
+        localStorage.removeItem('pestyfi_oauth_provider')
+        localStorage.removeItem('pestyfi_oauth_redirect')
+        localStorage.removeItem('pestyfi_pb_url')
+
+        window.location.replace('/')
+      } catch (err) {
+        status.hidden = true
+        errorEl.hidden = false
+        errorEl.textContent = err.message || 'Sign-in failed.'
+      }
+    </script>
+  </body>
+</html>
