@@ -1,8 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { setupLeadForm, setupMobileNavToggle, setupRevealAnimations } from './hooks'
 import { CONTACT } from './site'
 import Logo from './components/Logo'
 import Loader from './components/Loader'
+import { pb } from './lib/pocketbase'
+import AuthModal from './components/AuthModal'
 import {
   ANNOUNCEMENT,
   NAV_LINKS,
@@ -36,11 +38,28 @@ function Cta({ children, href = '#book', variant = 'primary', className = '' }) 
 }
 
 function App() {
+  const [currentUser, setCurrentUser] = useState(pb.authStore.model)
+  const [isAuthOpen, setIsAuthOpen] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+
   useEffect(() => {
     setupRevealAnimations()
     setupMobileNavToggle()
     setupLeadForm()
+
+    const unsubscribe = pb.authStore.onChange((token, model) => {
+      setCurrentUser(model)
+    })
+
+    return () => {
+      unsubscribe()
+    }
   }, [])
+
+  const handleSignOut = () => {
+    pb.authStore.clear()
+    setIsDropdownOpen(false)
+  }
 
   const cockroach = SERVICES.find((s) => s.id === 'cockroach')
   const otherServices = SERVICES.filter((s) => s.id !== 'cockroach')
@@ -75,9 +94,50 @@ function App() {
               </svg>
             </button>
 
-            <a href="#book" className="rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 ring-white/20 hover:bg-white/10 sm:text-sm">
-              Login
-            </a>
+            {currentUser ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold ring-1 ring-white/25 hover:bg-white/15 sm:text-sm transition-all focus:outline-none"
+                >
+                  <span className="h-2 w-2 rounded-full bg-eco animate-pulse" />
+                  <span className="max-w-[100px] truncate sm:max-w-[150px]">
+                    {currentUser.name || currentUser.email}
+                  </span>
+                  <svg className={`h-4 w-4 text-cream/70 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
+                    <div className="absolute right-0 mt-2 z-20 w-48 origin-top-right rounded-xl border border-white/10 bg-forest p-1 shadow-premium ring-1 ring-black/5">
+                      <div className="px-3 py-2 text-xs text-cream/50 border-b border-white/10 select-none">
+                        Logged in as:
+                        <div className="font-semibold text-cream truncate mt-0.5">{currentUser.email}</div>
+                      </div>
+                      <button
+                        onClick={handleSignOut}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
+                      >
+                        <svg className="h-4 w-4 text-urgent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Sign Out
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 ring-white/20 hover:bg-white/10 sm:text-sm transition-all focus:outline-none"
+              >
+                Login
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -529,6 +589,13 @@ function App() {
       >
         WhatsApp
       </a>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onSuccess={() => setCurrentUser(pb.authStore.model)}
+      />
     </div>
   )
 }

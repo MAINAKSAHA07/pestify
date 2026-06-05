@@ -1,4 +1,7 @@
+import { pb } from './lib/pocketbase'
+
 export function setupRevealAnimations() {
+
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
   const els = Array.from(document.querySelectorAll('.reveal'))
   if (els.length === 0) return
@@ -68,13 +71,43 @@ export function setupLeadForm() {
   const success = document.getElementById('formSuccess')
   if (!form || !success) return
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault()
     if (typeof form.reportValidity === 'function' && !form.reportValidity()) return
-    form.reset()
-    success.hidden = false
-    window.setTimeout(() => {
-      success.hidden = true
-    }, 6000)
+
+    const submitBtn = form.querySelector('button[type="submit"]')
+    const originalText = submitBtn ? submitBtn.textContent : 'Get Free Inspection'
+
+    // Show loading state in the button
+    if (submitBtn) {
+      submitBtn.disabled = true
+      submitBtn.textContent = 'Submitting...'
+    }
+
+    const formData = new FormData(form)
+    const data = {
+      fullName: formData.get('fullName'),
+      phone: formData.get('phone'),
+      location: formData.get('location'),
+    }
+
+    try {
+      // Create lead record in PocketBase
+      await pb.collection('leads').create(data)
+
+      form.reset()
+      success.hidden = false
+      window.setTimeout(() => {
+        success.hidden = true
+      }, 6000)
+    } catch (err) {
+      console.error('Failed to submit lead request:', err)
+      alert('Unable to submit the request. Please try again or contact us directly.')
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false
+        submitBtn.textContent = originalText
+      }
+    }
   })
 }
