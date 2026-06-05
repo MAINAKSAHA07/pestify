@@ -51,16 +51,33 @@
     transition: opacity 600ms ease, transform 600ms ease;
   }
 
-  .tickerTrack {
-    animation: ticker 22s linear infinite;
+  .logoTrack {
+    animation: logoScroll 40s linear infinite;
+    width: max-content;
   }
 
-  @keyframes ticker {
+  .animate-loaderProgress {
+    animation: loaderProgress 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  @keyframes logoScroll {
     0% {
       transform: translateX(0);
     }
     100% {
       transform: translateX(-50%);
+    }
+  }
+
+  @keyframes loaderProgress {
+    0% {
+      transform: translateX(-100%);
+    }
+    50% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(100%);
     }
   }
 
@@ -71,8 +88,14 @@
       transform: none !important;
       transition: none !important;
     }
-    .tickerTrack {
+    .logoTrack {
       animation: none !important;
+    }
+    .animate-loaderProgress {
+      animation: none !important;
+      transform: none !important;
+      width: 100% !important;
     }
   }
 }
+

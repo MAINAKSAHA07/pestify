@@ -17,43 +17,49 @@ export function setupRevealAnimations() {
         }
       }
     },
-    { threshold: 0.14, rootMargin: '0px 0px -10% 0px' },
+    { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
   )
 
   for (const el of els) io.observe(el)
 }
 
 export function setupMobileNavToggle() {
-  const btn = document.querySelector('.navToggle')
-  const menu = document.getElementById('navMenu')
-  if (!btn || !menu) return
+  const toggle = document.querySelector('.navToggle')
+  const close = document.querySelector('.navClose')
+  const drawer = document.getElementById('navDrawer')
+  const overlay = document.getElementById('navOverlay')
+  if (!toggle || !drawer || !overlay) return
 
-  const close = () => {
-    btn.setAttribute('aria-expanded', 'false')
-    menu.classList.add('hidden')
+  const openMenu = () => {
+    toggle.setAttribute('aria-expanded', 'true')
+    drawer.classList.remove('-translate-x-full')
+    overlay.classList.remove('hidden')
+    document.body.style.overflow = 'hidden'
   }
 
-  const open = () => {
-    btn.setAttribute('aria-expanded', 'true')
-    menu.classList.remove('hidden')
-    menu.classList.add('flex')
+  const closeMenu = () => {
+    toggle.setAttribute('aria-expanded', 'false')
+    drawer.classList.add('-translate-x-full')
+    overlay.classList.add('hidden')
+    document.body.style.overflow = ''
   }
 
-  close()
-
-  btn.addEventListener('click', () => {
-    const expanded = btn.getAttribute('aria-expanded') === 'true'
-    if (expanded) close()
-    else open()
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') === 'true'
+    if (expanded) closeMenu()
+    else openMenu()
   })
 
-  menu.addEventListener('click', (e) => {
+  close?.addEventListener('click', closeMenu)
+  overlay.addEventListener('click', closeMenu)
+
+  drawer.addEventListener('click', (e) => {
     const a = e.target?.closest?.('a')
-    if (a) close()
+    if (a) closeMenu()
   })
 
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') close()
+    if (e.key === 'Escape') closeMenu()
   })
 }
 
@@ -64,10 +70,7 @@ export function setupLeadForm() {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault()
-    if (typeof form.reportValidity === 'function') {
-      const ok = form.reportValidity()
-      if (!ok) return
-    }
+    if (typeof form.reportValidity === 'function' && !form.reportValidity()) return
     form.reset()
     success.hidden = false
     window.setTimeout(() => {
@@ -75,4 +78,3 @@ export function setupLeadForm() {
     }, 6000)
   })
 }
-
