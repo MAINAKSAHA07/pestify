@@ -12,9 +12,7 @@ export default function BookingWizard({ currentUser }) {
   const [phone, setPhone] = useState('')
   const [location, setLocation] = useState('')
 
-  const [cardNumber, setCardNumber] = useState('')
-  const [cardExpiry, setCardExpiry] = useState('')
-  const [cardCvv, setCardCvv] = useState('')
+  // Card details not required for Razorpay Payment Gateway
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -27,6 +25,20 @@ export default function BookingWizard({ currentUser }) {
       // email or other details could go here
     }
   }, [currentUser])
+
+  // Load Razorpay Checkout SDK script dynamically
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+    document.body.appendChild(script)
+    return () => {
+      const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
+      if (existing) {
+        document.body.removeChild(existing)
+      }
+    }
+  }, [])
 
   const currentRate = SERVICE_RATES[service]
 
@@ -62,68 +74,78 @@ export default function BookingWizard({ currentUser }) {
     setStep(step - 1)
   }
 
-  const handleCardNumberChange = (e) => {
-    const val = e.target.value.replace(/\s?/g, '').replace(/[^0-9]/g, '')
-    const parts = []
-    for (let i = 0; i < val.length; i += 4) {
-      parts.push(val.substring(i, i + 4))
-    }
-    setCardNumber(parts.length > 0 ? parts.join(' ').substring(0, 19) : '')
-  }
-
-  const handleExpiryChange = (e) => {
-    const val = e.target.value.replace(/\s?/g, '').replace(/[^0-9]/g, '')
-    if (val.length >= 2) {
-      setCardExpiry(val.substring(0, 2) + '/' + val.substring(2, 4))
-    } else {
-      setCardExpiry(val)
-    }
-  }
-
-  const handleCvvChange = (e) => {
-    const val = e.target.value.replace(/[^0-9]/g, '')
-    setCardCvv(val.substring(0, 4))
-  }
-
-  const handlePayAndBook = async (e) => {
-    e.preventDefault()
+  const handlePayAndBook = (e) => {
+    if (e) e.preventDefault()
     setError('')
 
-    // Basic card validations
-    const cleanCard = cardNumber.replace(/\s/g, '')
-    if (cleanCard.length < 15 || cleanCard.length > 16) {
-      setError('Please enter a valid credit card number.')
+    if (!window.Razorpay) {
+      setError('Payment gateway (Razorpay) is still loading. Please try again in a moment.')
       return
     }
-    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
-      setError('Please enter card expiry in MM/YY format.')
-      return
-    }
-    if (cardCvv.length < 3) {
-      setError('Please enter a valid 3 or 4 digit CVV.')
+
+    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID
+    if (!keyId) {
+      setError('Payment gateway configuration is missing (VITE_RAZORPAY_KEY_ID is not set).')
       return
     }
 
     setLoading(true)
 
-    try {
-      const record = await pb.collection('bookings').create({
-        fullName,
-        phone,
-        location,
-        service: currentRate.label,
-        bhkSize,
-        extraRooms,
-        price: total,
-        paymentMethod: 'card',
-        status: 'paid',
-      })
+    const options = {
+      key: keyId,
+      amount: Math.round(total * 100), // Amount is in currency subunits (Paise)
+      currency: 'INR',
+      name: 'Pestyfi Eco Solutions',
+      description: `${currentRate.label} (${bhkSize})`,
+      image: '/favicon.svg',
+      handler: async function (response) {
+        try {
+          const record = await pb.collection('bookings').create({
+            fullName,
+            phone,
+            location,
+            service: currentRate.label,
+            bhkSize,
+            extraRooms,
+            price: total,
+            paymentMethod: 'razorpay',
+            status: 'paid',
+            paymentId: response.razorpay_payment_id,
+          })
+          setSuccessData(record)
+        } catch (err) {
+          console.error('Error creating booking in PocketBase:', err)
+          setError(err?.message || `Payment succeeded (ID: ${response.razorpay_payment_id}) but we failed to record your booking. Please contact support.`)
+        } finally {
+          setLoading(false)
+        }
+      },
+      prefill: {
+        name: fullName,
+        contact: phone,
+        email: currentUser?.email || '',
+      },
+      theme: {
+        color: '#1A3A2A',
+      },
+      modal: {
+        ondismiss: function () {
+          setLoading(false)
+        }
+      }
+    }
 
-      setSuccessData(record)
+    try {
+      const rzp = new window.Razorpay(options)
+      rzp.on('payment.failed', function (resp) {
+        console.error('Payment failed:', resp.error)
+        setError(resp.error.description || 'Payment transaction failed. Please try again.')
+        setLoading(false)
+      })
+      rzp.open()
     } catch (err) {
-      console.error('Booking submission error:', err)
-      setError(err?.message || 'Transaction failed. Please try again.')
-    } finally {
+      console.error('Razorpay initialization failed:', err)
+      setError('Could not initialize the payment gateway window.')
       setLoading(false)
     }
   }
@@ -131,9 +153,6 @@ export default function BookingWizard({ currentUser }) {
   const handleReset = () => {
     setStep(1)
     setExtraRooms(0)
-    setCardNumber('')
-    setCardExpiry('')
-    setCardCvv('')
     setError('')
     setSuccessData(null)
   }
@@ -151,6 +170,9 @@ export default function BookingWizard({ currentUser }) {
 
         <div className="my-6 rounded-xl bg-forest/30 border border-white/5 p-4 text-left text-xs space-y-2 text-cream/90">
           <div><span className="text-cream/50">Transaction ID:</span> {successData.id}</div>
+          {successData.paymentId && (
+            <div><span className="text-cream/50">Razorpay Payment ID:</span> {successData.paymentId}</div>
+          )}
           <div><span className="text-cream/50">Service Selected:</span> {currentRate.label}</div>
           <div><span className="text-cream/50">Size:</span> {bhkSize} {extraRooms > 0 && `(+ ${extraRooms} extra room${extraRooms > 1 ? 's' : ''})`}</div>
           <div><span className="text-cream/50">Service Address:</span> {location}</div>
@@ -340,7 +362,7 @@ export default function BookingWizard({ currentUser }) {
 
       {/* STEP 3: PAYMENT */}
       {step === 3 && (
-        <form onSubmit={handlePayAndBook} className="space-y-4">
+        <div className="space-y-4">
           <div className="bg-forest/50 border border-white/5 rounded-xl p-3 text-xs text-cream/90 space-y-1.5">
             <h4 className="font-serif font-bold text-sm text-amber border-b border-white/10 pb-1.5 mb-2">Order Summary</h4>
             <div className="flex justify-between"><span>Service:</span> <span className="font-semibold">{currentRate.label}</span></div>
@@ -350,60 +372,18 @@ export default function BookingWizard({ currentUser }) {
             <div className="flex justify-between text-sm font-bold text-cream border-t border-white/10 pt-1.5"><span>Net Total:</span> <span>₹{total.toLocaleString('en-IN')}</span></div>
           </div>
 
-          <label className="grid gap-1.5 text-sm">
-            <span className="font-semibold text-cream">Cardholder Name</span>
-            <input
-              required
-              type="text"
-              placeholder={fullName}
-              className="h-11 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
-            />
-          </label>
-
-          <label className="grid gap-1.5 text-sm">
-            <span className="font-semibold text-cream">Card Number</span>
-            <div className="relative">
-              <input
-                required
-                type="text"
-                placeholder="4111 2222 3333 4444"
-                value={cardNumber}
-                onChange={handleCardNumberChange}
-                className="h-11 w-full rounded-xl bg-white/10 pl-3 pr-10 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-lg select-none">💳</span>
-            </div>
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1.5 text-sm">
-              <span className="font-semibold text-cream">Expiry Date</span>
-              <input
-                required
-                type="text"
-                maxLength="5"
-                placeholder="MM/YY"
-                value={cardExpiry}
-                onChange={handleExpiryChange}
-                className="h-11 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
-              />
-            </label>
-
-            <label className="grid gap-1.5 text-sm">
-              <span className="font-semibold text-cream">CVV</span>
-              <input
-                required
-                type="password"
-                maxLength="4"
-                placeholder="•••"
-                value={cardCvv}
-                onChange={handleCvvChange}
-                className="h-11 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
-              />
-            </label>
+          <div className="bg-forest/30 border border-white/5 rounded-xl p-3 text-xs text-cream/90 space-y-1.5">
+            <h4 className="font-semibold text-cream/70 border-b border-white/10 pb-1 mb-1.5">Contact & Location</h4>
+            <div><span className="text-cream/50">Name:</span> {fullName}</div>
+            <div><span className="text-cream/50">Phone:</span> {phone}</div>
+            <div><span className="text-cream/50">Location:</span> {location}</div>
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <p className="text-[11px] text-cream/60 text-center leading-relaxed">
+            Clicking the payment button below will open the secure **Razorpay checkout** to pay via UPI, cards, net banking, or wallets.
+          </p>
+
+          <div className="flex gap-3 pt-2">
             <button
               type="button"
               disabled={loading}
@@ -413,7 +393,7 @@ export default function BookingWizard({ currentUser }) {
               Back
             </button>
             <button
-              type="submit"
+              onClick={handlePayAndBook}
               disabled={loading}
               className="btnPrimary flex-1 py-3 text-sm disabled:opacity-75 flex items-center justify-center gap-2"
             >
@@ -430,7 +410,7 @@ export default function BookingWizard({ currentUser }) {
               )}
             </button>
           </div>
-        </form>
+        </div>
       )}
     </div>
   )
