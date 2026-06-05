@@ -5,6 +5,7 @@ import Logo from './components/Logo'
 import Loader from './components/Loader'
 import { pb } from './lib/pocketbase'
 import AuthModal from './components/AuthModal'
+import BookingWizard from './components/BookingWizard'
 import {
   ANNOUNCEMENT,
   NAV_LINKS,
@@ -521,26 +522,8 @@ function App() {
                 <a href={CONTACT.telHref} className="btnGhost">Talk to Expert</a>
               </div>
             </div>
-            <form id="leadForm" className="reveal rounded-2xl bg-white/10 p-6 ring-1 ring-white/15" noValidate>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-1.5 text-sm sm:col-span-2">
-                  <span className="font-semibold">Full Name</span>
-                  <input name="fullName" required placeholder="Your name" className="h-11 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber" />
-                </label>
-                <label className="grid gap-1.5 text-sm">
-                  <span className="font-semibold">Phone</span>
-                  <input name="phone" required inputMode="tel" placeholder="+91 XXXXX XXXXX" pattern="^[0-9+\s-]{8,}$" className="h-11 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber" />
-                </label>
-                <label className="grid gap-1.5 text-sm">
-                  <span className="font-semibold">Area</span>
-                  <input name="location" required placeholder="e.g. Andheri, Vashi" className="h-11 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber" />
-                </label>
-              </div>
-              <button type="submit" className="btnPrimary mt-5 w-full py-3">Get Free Inspection</button>
-              <div id="formSuccess" className="mt-4 rounded-xl bg-eco/20 px-4 py-3 text-sm" hidden role="status">
-                <strong>Thank you!</strong> Our team will call you shortly to confirm your booking.
-              </div>
-            </form>
+            <BookingWizard currentUser={currentUser} />
+
           </div>
         </section>
       </main>

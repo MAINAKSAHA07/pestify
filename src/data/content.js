@@ -123,3 +123,32 @@ export const FAQS = [
   { q: 'What is included in the free Pestyfi Home Kit?', a: 'The Pestyfi Home Kit worth ₹1,499 is included free with eligible prepaid bookings for everyday home hygiene and pest prevention.' },
   { q: 'Which areas do you serve?', a: 'Mumbai, Navi Mumbai, Thane, and nearby areas including Kalyan, Dombivli, Panvel, Mira Bhayandar, Bhiwandi, Ambernath, and Badlapur.' },
 ]
+
+export const SERVICE_RATES = {
+  cockroach: {
+    label: 'Advance Golden Gel (Cockroaches)',
+    bhk: { '1BHK': 2500, '2BHK': 4000, '3BHK': 5500, '4BHK+': 6500 },
+    extraRoom: 700
+  },
+  termite: {
+    label: 'Anti Termite Treatment (Termites)',
+    bhk: { '1BHK': 4500, '2BHK': 6000, '3BHK': 7500, '4BHK+': 10500 },
+    extraRoom: 1000
+  },
+  bedbug: {
+    label: 'BedBug Treatment (Bedbugs)',
+    bhk: { '1BHK': 3500, '2BHK': 5000, '3BHK': 6500, '4BHK+': 8500 },
+    extraRoom: 800
+  },
+  general: {
+    label: 'General Disinfection (Crawling Insects)',
+    bhk: { '1BHK': 3000, '2BHK': 4000, '3BHK': 5000, '4BHK+': 6500 },
+    extraRoom: 500
+  },
+  mosquito: {
+    label: 'Mosquito Treatment (Mosquitoes)',
+    bhk: { '1BHK': 3000, '2BHK': 4000, '3BHK': 5000, '4BHK+': 6500 },
+    extraRoom: 500
+  }
+}
+
