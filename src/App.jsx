@@ -629,6 +629,74 @@ function App() {
           </div>
         </section>
 
+        {/* 15b. Free Home Protection Kit Section */}
+        <section className="py-16 md:py-24 bg-white overflow-hidden border-b border-black/5">
+          <div className="containerX">
+            <div className="grid md:grid-cols-12 gap-10 items-center">
+              {/* Left Column: Image */}
+              <div className="reveal md:col-span-6 order-2 md:order-1">
+                <div className="relative p-2 rounded-2xl bg-forest/5 ring-1 ring-forest/10 shadow-premium overflow-hidden">
+                  <img
+                    src="/products.jpeg"
+                    alt="FREE Pestyfi Home Protection Kit"
+                    className="w-full rounded-xl border border-black/5 object-cover aspect-square transition-transform duration-500 hover:scale-[1.02]"
+                  />
+                  <div className="absolute top-4 left-4 bg-urgent text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-md uppercase tracking-wider">
+                    Worth ₹1,499 Free
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Text & Benefits */}
+              <div className="reveal md:col-span-6 space-y-6 order-1 md:order-2">
+                <div>
+                  <span className="pillX bg-amber/25 text-urgent border-amber/30 uppercase tracking-wider text-[11px] font-bold">
+                    Exclusive Bonus Offer
+                  </span>
+                  <h2 className="mt-4 font-serif text-3xl font-semibold leading-tight text-forest md:text-4xl">
+                    FREE Pestyfi Home Protection Kit With Your First Service
+                  </h2>
+                  <p className="mt-4 text-base leading-relaxed text-ink/75">
+                    We don't just protect your home during our visits. Every first-time prepaid booking includes our professional DIY Protection Kit absolutely free, helping you maintain complete hygiene between services.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex gap-3.5">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-eco/25 text-eco text-sm font-semibold">✓</span>
+                    <div>
+                      <h4 className="text-sm font-bold text-forest">Professional-Grade Formulations</h4>
+                      <p className="text-xs text-ink/70 mt-1">Custom-designed sprays for bedbugs, mosquitoes, crawling insects, termites, and cockroach gel baiting.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3.5">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-eco/25 text-eco text-sm font-semibold">✓</span>
+                    <div>
+                      <h4 className="text-sm font-bold text-forest">Safe for Kids & Pets</h4>
+                      <p className="text-xs text-ink/70 mt-1">100% herbal & eco-friendly ingredients that provide absolute safety for your family.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3.5">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-eco/25 text-eco text-sm font-semibold">✓</span>
+                    <div>
+                      <h4 className="text-sm font-bold text-forest">365-Day Home Defense</h4>
+                      <p className="text-xs text-ink/70 mt-1">Extend the life of your professional pest control service with quick-action touch-up applications.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Cta href="#book" className="px-6 py-3 text-sm font-bold shadow-premium">
+                    Claim Your Free Kit Now
+                  </Cta>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Book CTA */}
         <section id="book" className="bg-forest py-16 text-cream md:py-20">
           <div className="containerX grid gap-10 md:grid-cols-2">
