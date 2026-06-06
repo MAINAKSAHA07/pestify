@@ -734,6 +734,12 @@ function App() {
             <p className="mt-3 max-w-sm text-sm text-cream/75">
               Safe, odourless, eco-friendly pest control for homes and businesses across Mumbai, Navi Mumbai & Thane. Backed by 30+ years of Hindustan Pest Control expertise.
             </p>
+            <div className="mt-6 text-xs text-cream/60 max-w-sm space-y-1">
+              <span className="font-semibold text-cream text-sm block">Office Address</span>
+              <p className="leading-relaxed">
+                Room No. A/6, Shripad Smruti, Manpada Road, Dombivali, Star Colony, Dombivli, Thane-421201, Maharashtra, India
+              </p>
+            </div>
           </div>
           <div>
             <div className="text-sm font-semibold">Quick Links</div>
