@@ -286,9 +286,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
                       </svg>
                       Continue with Google
                     </button>
-                    <p className="text-[10px] leading-relaxed text-ink/45">
-                      Google redirect URI: <code className="rounded bg-cream px-1 break-all">{GOOGLE_REDIRECT_URI}</code>
-                    </p>
                   </>
                 ) : (
                   <p className="rounded-xl border border-amber/30 bg-amber/10 px-3 py-2 text-xs text-forest">

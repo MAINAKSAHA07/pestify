@@ -49,7 +49,7 @@ export default function Loader() {
         {/* Logo Card with scale animation */}
         <div className="relative z-10 flex h-24 w-52 items-center justify-center rounded-xl2 bg-white px-6 py-4 shadow-premium ring-4 ring-eco/25 transition-transform duration-500 hover:scale-105">
           <img
-            src="/logo.png"
+            src="/logo.webp"
             alt="Pestyfi Eco Solutions"
             className="h-10 w-auto object-contain"
           />

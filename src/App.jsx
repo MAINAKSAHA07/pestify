@@ -215,7 +215,7 @@ function App() {
             className="pointer-events-none absolute inset-0 opacity-15"
             aria-hidden="true"
             style={{
-              backgroundImage: "url('/hero/hero image /final/1.png')",
+              backgroundImage: "url('/hero/hero image /final/1.webp')",
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
@@ -235,7 +235,7 @@ function App() {
               <div className="reveal hidden md:block md:col-span-5">
                 <div className="relative p-2 rounded-2xl bg-white/5 ring-1 ring-white/10 shadow-premium overflow-hidden">
                   <img
-                    src="/hero/hero image /final/1.png"
+                    src="/hero/hero image /final/1.webp"
                     alt="Pestyfi Eco-friendly Protective Shield"
                     className="w-full rounded-xl shadow-lift border border-white/5 object-cover aspect-[4/3] transition-transform duration-500 hover:scale-[1.02]"
                   />
@@ -302,7 +302,7 @@ function App() {
             </div>
             <div className="reveal flex flex-col gap-6">
               <img
-                src="/hero/sec 5/final/2.png"
+                src="/hero/sec 5/final/2.webp"
                 alt="House cross-section showing typical pest infestations"
                 className="w-full rounded-2xl shadow-premium border border-black/5 object-cover"
               />
@@ -373,7 +373,7 @@ function App() {
                 </div>
                 <div className="relative h-64 md:h-auto min-h-[250px]">
                   <img
-                    src={cockroach.image || "/hero/services sec 7/9.png"}
+                    src={cockroach.image || "/hero/services sec 7/9.webp"}
                     alt="Cockroach gel baiting treatment"
                     className="absolute inset-0 w-full h-full object-cover"
                   />
@@ -456,7 +456,7 @@ function App() {
             </div>
             <div className="reveal">
               <img
-                src="/hero/sec 8-11/sec8.png"
+                src="/hero/sec 8-11/sec8.webp"
                 alt="Early pest infestation signs"
                 className="w-full rounded-2xl shadow-premium border border-white/10 object-cover"
               />
@@ -481,7 +481,7 @@ function App() {
             </div>
             <div className="reveal">
               <img
-                src="/hero/sec 8-11/sec9.png"
+                src="/hero/sec 8-11/sec9.webp"
                 alt="Pest control that doesn't disrupt family life"
                 className="w-full rounded-2xl shadow-premium border border-black/5 object-cover"
               />
@@ -494,7 +494,7 @@ function App() {
           <div className="containerX grid gap-10 md:grid-cols-2 md:items-center">
             <div className="reveal">
               <img
-                src="/hero/sec 8-11/sec10.png"
+                src="/hero/sec 8-11/sec10.webp"
                 alt="Family protected from health risks and pest hazards"
                 className="w-full rounded-2xl shadow-premium border border-black/5 object-cover"
               />
@@ -535,7 +535,7 @@ function App() {
               </div>
               <div className="reveal">
                 <img
-                  src="/hero/sec 8-11/sec 11.png"
+                  src="/hero/sec 8-11/sec 11.webp"
                   alt="Certified Pestyfi technician and happy family on home lawn"
                   className="w-full rounded-2xl shadow-premium border border-black/5 object-cover"
                 />
@@ -637,7 +637,7 @@ function App() {
               <div className="reveal md:col-span-6 order-2 md:order-1">
                 <div className="relative p-2 rounded-2xl bg-forest/5 ring-1 ring-forest/10 shadow-premium overflow-hidden">
                   <img
-                    src="/products.jpeg"
+                    src="/products.webp"
                     alt="FREE Pestyfi Home Protection Kit"
                     className="w-full rounded-xl border border-black/5 object-cover aspect-square transition-transform duration-500 hover:scale-[1.02]"
                   />

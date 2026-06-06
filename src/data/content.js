@@ -18,12 +18,12 @@ export const HERO = {
   cta1: 'Book Now & Get 20% OFF',
   cta2: 'Talk to a Pest Expert',
   trust: [
-    { title: '5 Lakh+ Customers', text: 'Homes and families protected across years of service.', icon: '/hero/hero icons/5 lakh.png' },
-    { title: '30 Years Of Excellence', text: 'Proven pest management experience you can trust.', icon: '/hero/hero icons/30 years.png' },
-    { title: 'Safe For Kids & Pets', text: 'Family-first treatment designed for modern homes.', icon: '/hero/hero icons/safe for kids.png' },
-    { title: '100% ecofriendly & herbal products', text: '', icon: '/hero/hero icons/ecofriendly.png' },
-    { title: 'Odourless Treatments', text: '', icon: '/hero/hero icons/odourless.png' },
-    { title: '365-Day Service Support', text: 'We do not disappear after one visit.', icon: '/hero/hero icons/365 day support.png' },
+    { title: '5 Lakh+ Customers', text: 'Homes and families protected across years of service.', icon: '/hero/hero icons/5 lakh.webp' },
+    { title: '30 Years Of Excellence', text: 'Proven pest management experience you can trust.', icon: '/hero/hero icons/30 years.webp' },
+    { title: 'Safe For Kids & Pets', text: 'Family-first treatment designed for modern homes.', icon: '/hero/hero icons/safe for kids.webp' },
+    { title: '100% ecofriendly & herbal products', text: '', icon: '/hero/hero icons/ecofriendly.webp' },
+    { title: 'Odourless Treatments', text: '', icon: '/hero/hero icons/odourless.webp' },
+    { title: '365-Day Service Support', text: 'We do not disappear after one visit.', icon: '/hero/hero icons/365 day support.webp' },
   ],
 }
 
@@ -37,15 +37,15 @@ export const TRUSTED_LOGOS = [
 ]
 
 export const WHY_CARDS = [
-  { title: '100% Herbal & Eco-Friendly Treatments', text: 'Environmentally responsible solutions safe for children, pets, and sensitive environments.', image: '/hero/why pestyfi - sec 6/1.png', icon: '/hero/hero icons/ecofriendly.png' },
-  { title: 'Safe for Kids & Pets', text: 'Formulations designed keeping your family\'s comfort and safety in mind.', image: '/hero/why pestyfi - sec 6/2.png', icon: '/hero/hero icons/safe for kids.png' },
-  { title: 'No disruption to your life', text: 'No need to vacate, move furniture or remove utensils. Your day does not need to stop.', image: '/hero/why pestyfi - sec 6/3.png', icon: '/hero/hero icons/odourless.png' },
-  { title: '100% Odourless Treatment', text: 'No harsh smell. No chemical discomfort. No awkward post-service stress.', image: '/hero/why pestyfi - sec 6/4.png', icon: '/hero/hero icons/odourless.png' },
-  { title: '365-day service guarantee', text: 'If pests return, so do we — at no extra cost.', image: '/hero/why pestyfi - sec 6/5.png', icon: '/hero/hero icons/365 day support.png' },
-  { title: '30 years of expertise', text: 'Trained technicians with extensive hands-on experience using modern techniques.', image: '/hero/why pestyfi - sec 6/6.png', icon: '/hero/hero icons/30 years.png' },
-  { title: 'Affordable Customized Plans', text: 'Treatment plans designed for your specific needs and budget.', image: '/hero/why pestyfi - sec 6/7.png', icon: '/hero/hero icons/5 lakh.png' },
-  { title: 'Advanced Pest Control Technology', text: 'Modern equipment, proven methods, and industry-approved products.', image: '/hero/why pestyfi - sec 6/8.png', icon: '/hero/hero icons/ecofriendly.png' },
-  { title: 'Long-Term Protection', text: 'Elimination plus prevention through monitoring and preventive measures.', image: '/hero/why pestyfi - sec 6/9.png', icon: '/hero/hero icons/30 years.png' },
+  { title: '100% Herbal & Eco-Friendly Treatments', text: 'Environmentally responsible solutions safe for children, pets, and sensitive environments.', image: '/hero/why pestyfi - sec 6/1.webp', icon: '/hero/hero icons/ecofriendly.webp' },
+  { title: 'Safe for Kids & Pets', text: 'Formulations designed keeping your family\'s comfort and safety in mind.', image: '/hero/why pestyfi - sec 6/2.webp', icon: '/hero/hero icons/safe for kids.webp' },
+  { title: 'No disruption to your life', text: 'No need to vacate, move furniture or remove utensils. Your day does not need to stop.', image: '/hero/why pestyfi - sec 6/3.webp', icon: '/hero/hero icons/odourless.webp' },
+  { title: '100% Odourless Treatment', text: 'No harsh smell. No chemical discomfort. No awkward post-service stress.', image: '/hero/why pestyfi - sec 6/4.webp', icon: '/hero/hero icons/odourless.webp' },
+  { title: '365-day service guarantee', text: 'If pests return, so do we — at no extra cost.', image: '/hero/why pestyfi - sec 6/5.webp', icon: '/hero/hero icons/365 day support.webp' },
+  { title: '30 years of expertise', text: 'Trained technicians with extensive hands-on experience using modern techniques.', image: '/hero/why pestyfi - sec 6/6.webp', icon: '/hero/hero icons/30 years.webp' },
+  { title: 'Affordable Customized Plans', text: 'Treatment plans designed for your specific needs and budget.', image: '/hero/why pestyfi - sec 6/7.webp', icon: '/hero/hero icons/5 lakh.webp' },
+  { title: 'Advanced Pest Control Technology', text: 'Modern equipment, proven methods, and industry-approved products.', image: '/hero/why pestyfi - sec 6/8.webp', icon: '/hero/hero icons/ecofriendly.webp' },
+  { title: 'Long-Term Protection', text: 'Elimination plus prevention through monitoring and preventive measures.', image: '/hero/why pestyfi - sec 6/9.webp', icon: '/hero/hero icons/30 years.webp' },
 ]
 
 export const SERVICES = [
@@ -53,20 +53,20 @@ export const SERVICES = [
     id: 'general',
     title: 'General Pest Control',
     text: 'Eliminates common household pests including cockroaches, ants, spiders, silverfish, and crawling insects with long-term protection.',
-    image: '/hero/services sec 7/7.png',
+    image: '/hero/services sec 7/7.webp',
   },
   {
     id: 'herbal',
     title: 'Herbal Pest Control',
     text: 'Natural, eco-friendly formulations that minimize chemical exposure while delivering excellent results.',
-    image: '/hero/services sec 7/8.png',
+    image: '/hero/services sec 7/8.webp',
   },
   {
     id: 'cockroach',
     title: 'Cockroach Pest Control',
     featured: true,
     text: 'Advanced cockroach control targeting hidden colonies with gel baiting, spray treatment, and preventive support — safe, odourless, no vacating required.',
-    image: '/hero/services sec 7/9.png',
+    image: '/hero/services sec 7/9.webp',
     plans: ['Advanced Cockroach Control', 'Standard Cockroach Control', 'Cockroach + Ant Control'],
     amc: [
       { name: '1 Year Protection', detail: '3 services in 12 months — every 4 months' },
@@ -84,12 +84,12 @@ export const SERVICES = [
       'Odourless & eco-conscious', 'Targets hidden colonies', '365-day support',
     ],
   },
-  { id: 'termite', title: 'Termite Pest Control', text: 'Advanced anti-termite treatments for homes, offices, shops, warehouses, and industrial facilities.', image: '/hero/services sec 7/1.png' },
-  { id: 'bedbug', title: 'Bed Bug Pest Control', text: 'Complete elimination of adult bed bugs and eggs for healthier, peaceful sleep.', image: '/hero/services sec 7/2.png' },
-  { id: 'mosquito', title: 'Mosquito Pest Control', text: 'Indoor and outdoor mosquito management to protect families from mosquito-borne diseases.', image: '/hero/services sec 7/3.png' },
-  { id: 'rodent', title: 'Rodent Pest Control', text: 'Inspection, trapping, exclusion, and preventive solutions to keep your property rodent-free.', image: '/hero/services sec 7/4.png' },
-  { id: 'ant', title: 'Ant Control', text: 'Colony-focused treatment that eliminates infestations at the source.', image: '/hero/services sec 7/5.png' },
-  { id: 'tick', title: 'Tick Pest Control', text: 'Specialized treatment for homes with pets, gardens, and family spaces.', image: '/hero/services sec 7/6.png' },
+  { id: 'termite', title: 'Termite Pest Control', text: 'Advanced anti-termite treatments for homes, offices, shops, warehouses, and industrial facilities.', image: '/hero/services sec 7/1.webp' },
+  { id: 'bedbug', title: 'Bed Bug Pest Control', text: 'Complete elimination of adult bed bugs and eggs for healthier, peaceful sleep.', image: '/hero/services sec 7/2.webp' },
+  { id: 'mosquito', title: 'Mosquito Pest Control', text: 'Indoor and outdoor mosquito management to protect families from mosquito-borne diseases.', image: '/hero/services sec 7/3.webp' },
+  { id: 'rodent', title: 'Rodent Pest Control', text: 'Inspection, trapping, exclusion, and preventive solutions to keep your property rodent-free.', image: '/hero/services sec 7/4.webp' },
+  { id: 'ant', title: 'Ant Control', text: 'Colony-focused treatment that eliminates infestations at the source.', image: '/hero/services sec 7/5.webp' },
+  { id: 'tick', title: 'Tick Pest Control', text: 'Specialized treatment for homes with pets, gardens, and family spaces.', image: '/hero/services sec 7/6.webp' },
 ]
 
 export const SPACES = [
