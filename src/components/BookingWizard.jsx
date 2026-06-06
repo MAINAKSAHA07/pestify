@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { pb } from '../lib/pocketbase'
 import { SERVICE_RATES } from '../data/content'
+import { APPROVED_PINCODES } from '../data/pincodes'
 
-export default function BookingWizard({ currentUser }) {
+export default function BookingWizard({ currentUser, locationInfo }) {
   const [step, setStep] = useState(1)
   const [service, setService] = useState('cockroach')
   const [bhkSize, setBhkSize] = useState('1BHK')
@@ -10,7 +11,23 @@ export default function BookingWizard({ currentUser }) {
 
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
-  const [location, setLocation] = useState('')
+  const [location, setLocation] = useState(() => {
+    const saved = localStorage.getItem('pestyfi_location')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (parsed.pincode && parsed.serviceable) {
+        return `${parsed.area} (${parsed.pincode})`
+      }
+    }
+    return ''
+  })
+
+  // Sync location if updated from header
+  useEffect(() => {
+    if (locationInfo && locationInfo.pincode && locationInfo.serviceable) {
+      setLocation(`${locationInfo.area} (${locationInfo.pincode})`)
+    }
+  }, [locationInfo])
 
   // Card details not required for Razorpay Payment Gateway
 
@@ -63,6 +80,24 @@ export default function BookingWizard({ currentUser }) {
       }
       if (!/^\+?[0-9\s-]{8,}$/.test(phone)) {
         setError('Please enter a valid phone number.')
+        return
+      }
+      const pincodeMatch = location.match(/\b\d{6}\b/)
+      if (!pincodeMatch) {
+        setError('Please include a valid 6-digit PIN code in your address.')
+        return
+      }
+      const pincode = pincodeMatch[0]
+      if (!APPROVED_PINCODES.has(pincode)) {
+        setError(`We do not serve the PIN code ${pincode} yet. We will be there at your city soon! Your request has been noted.`)
+        
+        // Log out-of-service lead in PocketBase
+        pb.collection('leads').create({
+          fullName,
+          phone,
+          location: `OUT_OF_SERVICE: ${pincode} (${location})`
+        }).catch(err => console.error('Failed to register out-of-service lead:', err))
+        
         return
       }
     }

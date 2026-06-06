@@ -6,6 +6,7 @@ import Loader from './components/Loader'
 import { pb } from './lib/pocketbase'
 import AuthModal from './components/AuthModal'
 import BookingWizard from './components/BookingWizard'
+import LocationModal from './components/LocationModal'
 import {
   ANNOUNCEMENT,
   NAV_LINKS,
@@ -42,6 +43,20 @@ function App() {
   const [currentUser, setCurrentUser] = useState(pb.authStore.model)
   const [isAuthOpen, setIsAuthOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [locationInfo, setLocationInfo] = useState(() => {
+    const saved = localStorage.getItem('pestyfi_location')
+    return saved ? JSON.parse(saved) : null
+  })
+  const [isLocationOpen, setIsLocationOpen] = useState(false)
+
+  useEffect(() => {
+    if (!locationInfo) {
+      const timer = setTimeout(() => {
+        setIsLocationOpen(true)
+      }, 2100)
+      return () => clearTimeout(timer)
+    }
+  }, [locationInfo])
 
   useEffect(() => {
     setupRevealAnimations()
@@ -82,7 +97,25 @@ function App() {
         <div className="containerX flex items-center justify-between gap-4 py-3">
           <Logo onDark size="md" />
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Location Selector */}
+            <button
+              onClick={() => setIsLocationOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs font-semibold hover:bg-white/10 transition-all text-cream focus:outline-none ring-1 ring-white/5"
+            >
+              <span>📍</span>
+              <span className="max-w-[120px] truncate sm:max-w-none">
+                {locationInfo ? (
+                  locationInfo.serviceable ? `${locationInfo.area} (${locationInfo.pincode})` : `No Service (${locationInfo.pincode})`
+                ) : (
+                  'Select Location'
+                )}
+              </span>
+              <svg className="h-3.5 w-3.5 text-cream/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
             <button
               type="button"
               className="navToggle rounded-lg p-2 hover:bg-white/10"
@@ -179,35 +212,49 @@ function App() {
         <section id="top" className="relative overflow-hidden bg-forest text-cream">
           <div className="pointer-events-none absolute inset-0 bg-grain opacity-90" aria-hidden="true" />
           <div
-            className="pointer-events-none absolute inset-0 opacity-30"
+            className="pointer-events-none absolute inset-0 opacity-15"
             aria-hidden="true"
             style={{
-              backgroundImage:
-                "linear-gradient(rgba(26,58,42,0.7), rgba(26,58,42,0.9)), url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1800&q=80')",
+              backgroundImage: "url('/hero/hero image /final/1.png')",
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
           />
           <div className="containerX relative py-16 md:py-24">
-            <div className="reveal max-w-3xl">
-              <h1 className="font-serif text-4xl font-semibold leading-[1.08] tracking-tight md:text-5xl lg:text-6xl">
-                {HERO.headline}
-              </h1>
-              <p className="mt-5 max-w-2xl text-base leading-relaxed text-cream/85 md:text-lg">{HERO.subheadline}</p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Cta href="#book" className="px-6 py-3 text-base">{HERO.cta1}</Cta>
-                <Cta href={CONTACT.waHref} variant="ghost" className="px-6 py-3 text-base">{HERO.cta2}</Cta>
+            <div className="grid md:grid-cols-12 gap-10 items-center">
+              <div className="reveal md:col-span-7 max-w-xl">
+                <h1 className="font-serif text-4xl font-semibold leading-[1.08] tracking-tight md:text-5xl lg:text-6xl">
+                  {HERO.headline}
+                </h1>
+                <p className="mt-5 text-base leading-relaxed text-cream/85 md:text-lg">{HERO.subheadline}</p>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Cta href="#book" className="px-6 py-3 text-base">{HERO.cta1}</Cta>
+                  <Cta href={CONTACT.waHref} variant="ghost" className="px-6 py-3 text-base">{HERO.cta2}</Cta>
+                </div>
+              </div>
+              <div className="reveal hidden md:block md:col-span-5">
+                <div className="relative p-2 rounded-2xl bg-white/5 ring-1 ring-white/10 shadow-premium overflow-hidden">
+                  <img
+                    src="/hero/hero image /final/1.png"
+                    alt="Pestyfi Eco-friendly Protective Shield"
+                    className="w-full rounded-xl shadow-lift border border-white/5 object-cover aspect-[4/3] transition-transform duration-500 hover:scale-[1.02]"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="reveal mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="reveal mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {HERO.trust.map((t) => (
-                <div key={t.title} className="rounded-xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <div className="flex items-start gap-2">
-                    <span className="mt-0.5 text-eco" aria-hidden="true">✓</span>
+                <div key={t.title} className="rounded-xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-sm transition-all duration-300 hover:bg-white/15">
+                  <div className="flex items-center gap-3">
+                    {t.icon ? (
+                      <img src={t.icon} alt="" className="h-10 w-10 shrink-0 object-contain" />
+                    ) : (
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-eco/10 text-eco text-lg" aria-hidden="true">✓</span>
+                    )}
                     <div>
                       <div className="text-sm font-semibold">{t.title}</div>
-                      {t.text && <div className="mt-1 text-xs text-cream/75">{t.text}</div>}
+                      {t.text && <div className="mt-0.5 text-xs text-cream/70">{t.text}</div>}
                     </div>
                   </div>
                 </div>
@@ -253,15 +300,22 @@ function App() {
               </p>
               <Cta href="#book" className="mt-6">Book Preventive Pest Protection</Cta>
             </div>
-            <div className="reveal cardX p-6">
-              <ul className="space-y-4 text-sm text-ink/75">
-                {['AC servicing before breakdown', 'Water filter before failure', 'Pest protection before infestation'].map((item, i) => (
-                  <li key={item} className="flex items-center gap-3">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-lime/60 font-display text-lg text-forest">{i + 1}</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
+            <div className="reveal flex flex-col gap-6">
+              <img
+                src="/hero/sec 5/final/2.png"
+                alt="House cross-section showing typical pest infestations"
+                className="w-full rounded-2xl shadow-premium border border-black/5 object-cover"
+              />
+              <div className="cardX p-5">
+                <ul className="space-y-3.5 text-sm text-ink/75">
+                  {['AC servicing before breakdown', 'Water filter before failure', 'Pest protection before infestation'].map((item, i) => (
+                    <li key={item} className="flex items-center gap-3">
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-lime text-xs font-bold text-forest">{i + 1}</span>
+                      <span className="font-semibold text-forest">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
         </section>
@@ -275,11 +329,23 @@ function App() {
                 Most pest control services make the process feel complicated — move furniture, empty the kitchen, leave the house, deal with chemical smell. Pestyfi is built for homes that want protection without disruption.
               </p>
             </div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {WHY_CARDS.map((c) => (
-                <article key={c.title} className="reveal cardX p-5 transition hover:-translate-y-0.5 hover:shadow-lift">
-                  <h3 className="text-sm font-semibold text-forest">{c.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-ink/70">{c.text}</p>
+                <article key={c.title} className="reveal cardX overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lift flex flex-col bg-white">
+                  {c.image && (
+                    <div className="h-44 w-full overflow-hidden border-b border-black/5 relative bg-forest/5">
+                      <img src={c.image} alt={c.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+                      {c.icon && (
+                        <img src={c.icon} alt="" className="absolute top-3 right-3 w-10 h-10 rounded-lg bg-forest/80 p-1.5 ring-1 ring-white/10 object-contain" />
+                      )}
+                    </div>
+                  )}
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-forest">{c.title}</h3>
+                      <p className="mt-2 text-xs leading-relaxed text-ink/70">{c.text}</p>
+                    </div>
+                  </div>
                 </article>
               ))}
             </div>
@@ -296,13 +362,23 @@ function App() {
 
             {/* Featured Cockroach */}
             {cockroach && (
-              <article className="reveal mt-10 cardX overflow-hidden">
-                <div className="border-b border-black/5 bg-forest p-6 text-cream md:p-8">
-                  <span className="pillX bg-eco/20 text-eco ring-white/10">Featured Service</span>
-                  <h3 className="mt-3 font-serif text-2xl font-semibold">{cockroach.title}</h3>
-                  <p className="mt-3 max-w-3xl text-sm leading-relaxed text-cream/85">{cockroach.text}</p>
+              <article className="reveal mt-10 cardX overflow-hidden grid md:grid-cols-2 bg-white">
+                <div className="bg-forest p-6 text-cream md:p-8 flex flex-col justify-between">
+                  <div>
+                    <span className="pillX bg-eco/20 text-eco ring-white/10">Featured Service</span>
+                    <h3 className="mt-3 font-serif text-2xl font-semibold">{cockroach.title}</h3>
+                    <p className="mt-3 text-sm leading-relaxed text-cream/85">{cockroach.text}</p>
+                  </div>
+                  <Cta href="#book" className="mt-6 w-fit">Book Cockroach Control</Cta>
                 </div>
-                <div className="grid gap-6 p-6 md:grid-cols-2 md:p-8">
+                <div className="relative h-64 md:h-auto min-h-[250px]">
+                  <img
+                    src={cockroach.image || "/hero/services sec 7/9.png"}
+                    alt="Cockroach gel baiting treatment"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </div>
+                <div className="grid gap-6 p-6 md:grid-cols-2 md:p-8 md:col-span-2 border-t border-black/5 bg-white">
                   <div>
                     <h4 className="text-sm font-semibold text-forest">Service Plans</h4>
                     <ul className="mt-3 space-y-2">
@@ -335,24 +411,32 @@ function App() {
                     </ol>
                   </div>
                 </div>
-                <div className="border-t border-black/5 px-6 py-4 md:px-8">
+                <div className="border-t border-black/5 px-6 py-4 md:px-8 md:col-span-2 bg-cream/40">
                   <div className="flex flex-wrap gap-2">
                     {cockroach.benefits.map((b) => (
                       <span key={b} className="text-xs font-medium text-ink/70">✓ {b}</span>
                     ))}
                   </div>
-                  <Cta href="#book" className="mt-4">Book Cockroach Control</Cta>
                 </div>
               </article>
             )}
 
             {/* Other services */}
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {otherServices.map((s) => (
-                <article key={s.id} className="reveal cardX p-5 transition hover:-translate-y-0.5 hover:shadow-lift">
-                  <h3 className="text-sm font-semibold text-forest">{s.title}</h3>
-                  <p className="mt-2 text-xs leading-relaxed text-ink/70">{s.text}</p>
-                  <a href="#book" className="mt-3 inline-block text-xs font-semibold text-green hover:text-forest">Book Now →</a>
+                <article key={s.id} className="reveal cardX overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lift flex flex-col bg-white">
+                  {s.image && (
+                    <div className="h-40 w-full overflow-hidden bg-forest/5 relative">
+                      <img src={s.image} alt={s.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+                    </div>
+                  )}
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-forest">{s.title}</h3>
+                      <p className="mt-2 text-xs leading-relaxed text-ink/70">{s.text}</p>
+                    </div>
+                    <a href="#book" className="mt-4 inline-block text-xs font-semibold text-green hover:text-forest">Book Now →</a>
+                  </div>
                 </article>
               ))}
             </div>
@@ -361,65 +445,101 @@ function App() {
 
         {/* 8. Notice Pests Early */}
         <section className="bg-forest py-16 text-cream md:py-20">
-          <div className="containerX reveal max-w-3xl text-center">
-            <h2 className="font-serif text-3xl font-semibold md:text-4xl">You Don't Notice Pests Until They've Already Made Themselves Comfortable</h2>
-            <div className="mt-6 space-y-2 text-sm text-cream/80">
-              <p>One cockroach in the kitchen. One termite mark on the furniture. One bed bug bite at night. One rat sound behind the cabinet.</p>
-              <p className="font-medium text-cream">Most pest problems start quietly. By the time they become visible, they may already be spreading, breeding, or damaging your home.</p>
+          <div className="containerX grid gap-10 md:grid-cols-2 md:items-center">
+            <div className="reveal space-y-4">
+              <h2 className="font-serif text-3xl font-semibold md:text-4xl">You Don't Notice Pests Until They've Already Made Themselves Comfortable</h2>
+              <div className="space-y-3 text-sm text-cream/80">
+                <p>One cockroach in the kitchen. One termite mark on the furniture. One bed bug bite at night. One rat sound behind the cabinet.</p>
+                <p className="font-medium text-cream">Most pest problems start quietly. By the time they become visible, they may already be spreading, breeding, or damaging your home.</p>
+              </div>
+              <Cta href="#book" className="mt-8 inline-block">Stop the Infestation Early</Cta>
             </div>
-            <Cta href="#book" className="mt-8">Stop the Infestation Early</Cta>
+            <div className="reveal">
+              <img
+                src="/hero/sec 8-11/sec8.png"
+                alt="Early pest infestation signs"
+                className="w-full rounded-2xl shadow-premium border border-white/10 object-cover"
+              />
+            </div>
           </div>
         </section>
 
         {/* 9. Fits Into Your Life */}
         <section className="py-16 md:py-20">
           <div className="containerX grid gap-10 md:grid-cols-2 md:items-center">
-            <SectionHead title="Pest Control That Fits Into Your Life, Not the Other Way Around" subtitle="You should not have to rearrange your entire home for pest control." />
-            <div className="reveal grid gap-3 sm:grid-cols-2">
-              {['No need to vacate', 'No need to remove utensils', 'No harsh odour', 'No complicated preparation', 'No endless follow-ups', 'No confusion'].map((item) => (
-                <div key={item} className="cardX flex items-center gap-2 p-4 text-sm font-medium text-forest">
-                  <span className="text-eco" aria-hidden="true">✓</span> {item}
-                </div>
-              ))}
+            <div className="reveal">
+              <SectionHead title="Pest Control That Fits Into Your Life, Not the Other Way Around" subtitle="You should not have to rearrange your entire home for pest control." />
+              <div className="reveal grid gap-3 sm:grid-cols-2 mt-6">
+                {['No need to vacate', 'No need to remove utensils', 'No harsh odour', 'No complicated preparation', 'No endless follow-ups', 'No confusion'].map((item) => (
+                  <div key={item} className="cardX flex items-center gap-2 p-3 text-xs font-semibold text-forest">
+                    <span className="text-eco font-bold" aria-hidden="true">✓</span> {item}
+                  </div>
+                ))}
+              </div>
+              <p className="reveal text-sm text-ink/70 mt-6">Just book, relax, and let certified hygiene experts handle the problem.</p>
+              <Cta href="#book" className="reveal mt-4">Book a Hassle-Free Service</Cta>
             </div>
-            <p className="reveal text-sm text-ink/70 md:col-span-2">Just book, relax, and let certified hygiene experts handle the problem.</p>
-            <Cta href="#book" className="reveal md:col-span-2">Book a Hassle-Free Service</Cta>
+            <div className="reveal">
+              <img
+                src="/hero/sec 8-11/sec9.png"
+                alt="Pest control that doesn't disrupt family life"
+                className="w-full rounded-2xl shadow-premium border border-black/5 object-cover"
+              />
+            </div>
           </div>
         </section>
 
         {/* 10. Real Problem */}
         <section className="bg-white/60 py-16 md:py-20">
-          <div className="containerX reveal max-w-3xl">
-            <SectionHead title="The Real Problem Isn't Just Pests. It's What They Bring Into Your Home." />
-            <ul className="mt-6 space-y-3 text-sm text-ink/75">
-              {[
-                'Cockroaches crawl across drains and food surfaces.',
-                'Rodents contaminate storage areas.',
-                'Mosquitoes affect sleep and health.',
-                'Bed bugs disturb your peace.',
-                'Termites silently damage your furniture.',
-              ].map((item) => (
-                <li key={item} className="flex gap-2"><span className="text-urgent" aria-hidden="true">•</span>{item}</li>
-              ))}
-            </ul>
-            <p className="mt-6 text-sm font-medium text-forest">
-              Pestyfi gives your family a cleaner, safer, more comfortable home. Because hygiene is not a luxury — it is basic home care.
-            </p>
-            <Cta href="#book" className="mt-6">Protect My Family Today</Cta>
+          <div className="containerX grid gap-10 md:grid-cols-2 md:items-center">
+            <div className="reveal">
+              <img
+                src="/hero/sec 8-11/sec10.png"
+                alt="Family protected from health risks and pest hazards"
+                className="w-full rounded-2xl shadow-premium border border-black/5 object-cover"
+              />
+            </div>
+            <div className="reveal">
+              <SectionHead title="The Real Problem Isn't Just Pests. It's What They Bring Into Your Home." />
+              <ul className="mt-6 space-y-3 text-sm text-ink/75">
+                {[
+                  'Cockroaches crawl across drains and food surfaces.',
+                  'Rodents contaminate storage areas.',
+                  'Mosquitoes affect sleep and health.',
+                  'Bed bugs disturb your peace.',
+                  'Termites silently damage your furniture.',
+                ].map((item) => (
+                  <li key={item} className="flex gap-2"><span className="text-urgent" aria-hidden="true">•</span>{item}</li>
+                ))}
+              </ul>
+              <p className="mt-6 text-sm font-medium text-forest">
+                Pestyfi gives your family a cleaner, safer, more comfortable home. Because hygiene is not a luxury — it is basic home care.
+              </p>
+              <Cta href="#book" className="mt-6">Protect My Family Today</Cta>
+            </div>
           </div>
         </section>
 
         {/* 11. About + Every Space */}
         <section id="about" className="py-16 md:py-20">
           <div className="containerX">
-            <div className="reveal max-w-3xl">
-              <SectionHead title="Built for People Who Want Pest Control Without Panic" />
-              <p className="mt-4 text-sm leading-relaxed text-ink/70">
-                Pestyfi is a new-age pest control brand launched by Hindustan Pest Control, a pioneer with over 30 years of experience. Pest control should not feel scary, toxic, confusing, or inconvenient.
-              </p>
-              <p className="mt-4 text-sm leading-relaxed text-ink/70">
-                We bring together the trust of Hindustan Pest Control with the speed, safety, and convenience today's homes expect. We do not just treat pests — we protect the feeling of comfort inside your home.
-              </p>
+            <div className="grid gap-10 md:grid-cols-2 md:items-center">
+              <div className="reveal">
+                <SectionHead title="Built for People Who Want Pest Control Without Panic" />
+                <p className="mt-5 text-sm leading-relaxed text-ink/70">
+                  Pestyfi is a new-age pest control brand launched by Hindustan Pest Control, a pioneer with over 30 years of experience. Pest control should not feel scary, toxic, confusing, or inconvenient.
+                </p>
+                <p className="mt-4 text-sm leading-relaxed text-ink/70">
+                  We bring together the trust of Hindustan Pest Control with the speed, safety, and convenience today's homes expect. We do not just treat pests — we protect the feeling of comfort inside your home.
+                </p>
+              </div>
+              <div className="reveal">
+                <img
+                  src="/hero/sec 8-11/sec 11.png"
+                  alt="Certified Pestyfi technician and happy family on home lawn"
+                  className="w-full rounded-2xl shadow-premium border border-black/5 object-cover"
+                />
+              </div>
             </div>
 
             <div className="reveal mt-10">
@@ -522,7 +642,7 @@ function App() {
                 <a href={CONTACT.telHref} className="btnGhost">Talk to Expert</a>
               </div>
             </div>
-            <BookingWizard currentUser={currentUser} />
+            <BookingWizard currentUser={currentUser} locationInfo={locationInfo} />
 
           </div>
         </section>
@@ -578,6 +698,13 @@ function App() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onSuccess={() => setCurrentUser(pb.authStore.model)}
+      />
+
+      {/* Location Modal */}
+      <LocationModal
+        isOpen={isLocationOpen}
+        onClose={() => setIsLocationOpen(false)}
+        onSelect={(loc) => setLocationInfo(loc)}
       />
     </div>
   )

@@ -256,6 +256,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
               </div>
 
               <div className="space-y-3">
+                {/* 
                 <button
                   type="button"
                   onClick={() => setMode('whatsapp-phone')}
@@ -267,6 +268,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
                   </svg>
                   Continue with WhatsApp
                 </button>
+                */}
 
                 {googleEnabled ? (
                   <>
