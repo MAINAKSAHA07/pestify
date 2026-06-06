@@ -104,11 +104,21 @@ function App() {
               className="flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs font-semibold hover:bg-white/10 transition-all text-cream focus:outline-none ring-1 ring-white/5"
             >
               <span>📍</span>
-              <span className="max-w-[120px] truncate sm:max-w-none">
+              <span className="max-w-[85px] sm:max-w-none truncate">
                 {locationInfo ? (
-                  locationInfo.serviceable ? `${locationInfo.area} (${locationInfo.pincode})` : `No Service (${locationInfo.pincode})`
+                  locationInfo.serviceable ? (
+                    <>
+                      <span className="hidden sm:inline">{locationInfo.area} </span>
+                      <span>({locationInfo.pincode})</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="hidden sm:inline">No Service </span>
+                      <span>({locationInfo.pincode})</span>
+                    </>
+                  )
                 ) : (
-                  'Select Location'
+                  'Location'
                 )}
               </span>
               <svg className="h-3.5 w-3.5 text-cream/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -135,7 +145,7 @@ function App() {
                   className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold ring-1 ring-white/25 hover:bg-white/15 sm:text-sm transition-all focus:outline-none"
                 >
                   <span className="h-2 w-2 rounded-full bg-eco animate-pulse" />
-                  <span className="max-w-[100px] truncate sm:max-w-[150px]">
+                  <span className="max-w-[55px] sm:max-w-[150px] truncate">
                     {currentUser.name || currentUser.email}
                   </span>
                   <svg className={`h-4 w-4 text-cream/70 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -747,7 +757,10 @@ function App() {
           </div>
         </div>
         <div className="border-t border-white/10">
-          <div className="containerX py-4 text-xs text-cream/60">© 2026 Pestyfi Eco Solutions. All rights reserved.</div>
+          <div className="containerX py-4 text-xs text-cream/60 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <span>© 2026 Pestyfi Eco Solutions. All rights reserved.</span>
+            <span>Developed with ❤️ by WHLN group</span>
+          </div>
         </div>
       </footer>
 
