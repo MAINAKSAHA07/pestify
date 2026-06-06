@@ -21,8 +21,8 @@ export const HERO = {
     { title: '5 Lakh+ Customers', text: 'Homes and families protected across years of service.', icon: '/hero/hero icons/5 lakh.webp' },
     { title: '30 Years Of Excellence', text: 'Proven pest management experience you can trust.', icon: '/hero/hero icons/30 years.webp' },
     { title: 'Safe For Kids & Pets', text: 'Family-first treatment designed for modern homes.', icon: '/hero/hero icons/safe for kids.webp' },
-    { title: '100% ecofriendly & herbal products', text: '', icon: '/hero/hero icons/ecofriendly.webp' },
-    { title: 'Odourless Treatments', text: '', icon: '/hero/hero icons/odourless.webp' },
+    { title: '100% ecofriendly & herbal products', text: 'Safe, natural pest control that protects your home and the planet.', icon: '/hero/hero icons/ecofriendly.webp' },
+    { title: 'Odourless Treatments', text: 'No harsh smell, no discomfort, just clean protection.', icon: '/hero/hero icons/odourless.webp' },
     { title: '365-Day Service Support', text: 'We do not disappear after one visit.', icon: '/hero/hero icons/365 day support.webp' },
   ],
 }
@@ -39,13 +39,13 @@ export const TRUSTED_LOGOS = [
 export const WHY_CARDS = [
   { title: '100% Herbal & Eco-Friendly Treatments', text: 'Environmentally responsible solutions safe for children, pets, and sensitive environments.', image: '/hero/why pestyfi - sec 6/1.webp', icon: '/hero/hero icons/ecofriendly.webp' },
   { title: 'Safe for Kids & Pets', text: 'Formulations designed keeping your family\'s comfort and safety in mind.', image: '/hero/why pestyfi - sec 6/2.webp', icon: '/hero/hero icons/safe for kids.webp' },
-  { title: 'No disruption to your life', text: 'No need to vacate, move furniture or remove utensils. Your day does not need to stop.', image: '/hero/why pestyfi - sec 6/3.webp', icon: '/hero/hero icons/odourless.webp' },
-  { title: '100% Odourless Treatment', text: 'No harsh smell. No chemical discomfort. No awkward post-service stress.', image: '/hero/why pestyfi - sec 6/4.webp', icon: '/hero/hero icons/odourless.webp' },
-  { title: '365-day service guarantee', text: 'If pests return, so do we — at no extra cost.', image: '/hero/why pestyfi - sec 6/5.webp', icon: '/hero/hero icons/365 day support.webp' },
-  { title: '30 years of expertise', text: 'Trained technicians with extensive hands-on experience using modern techniques.', image: '/hero/why pestyfi - sec 6/6.webp', icon: '/hero/hero icons/30 years.webp' },
-  { title: 'Affordable Customized Plans', text: 'Treatment plans designed for your specific needs and budget.', image: '/hero/why pestyfi - sec 6/7.webp', icon: '/hero/hero icons/5 lakh.webp' },
-  { title: 'Advanced Pest Control Technology', text: 'Modern equipment, proven methods, and industry-approved products.', image: '/hero/why pestyfi - sec 6/8.webp', icon: '/hero/hero icons/ecofriendly.webp' },
-  { title: 'Long-Term Protection', text: 'Elimination plus prevention through monitoring and preventive measures.', image: '/hero/why pestyfi - sec 6/9.webp', icon: '/hero/hero icons/30 years.webp' },
+  { title: 'No disruption to your life', text: 'No need to vacate your home, move your furniture or remove utensils. Your day does not need to stop because pests showed up. We make pest control convenient, practical, and home-friendly.', image: '/hero/why pestyfi - sec 6/3.webp', icon: '/hero/hero icons/odourless.webp' },
+  { title: '100% Odourless & Eco-Friendly Treatment', text: 'No harsh smell. No chemical discomfort. No awkward post-service stress.', image: '/hero/why pestyfi - sec 6/4.webp', icon: '/hero/hero icons/odourless.webp' },
+  { title: '365-day service guarantee', text: 'Our year round guarantee means we stand by our work. If pests return, so do we - at no extra cost.', image: '/hero/why pestyfi - sec 6/5.webp', icon: '/hero/hero icons/365 day support.webp' },
+  { title: '30 years of expertise', text: 'Our trained technicians have extensive hands-on experience handling all types of pest infestations using modern pest management techniques.', image: '/hero/why pestyfi - sec 6/6.webp', icon: '/hero/hero icons/30 years.webp' },
+  { title: 'Affordable Customized Plans', text: 'Every property is different. That\'s why we offer customized treatment plans designed to meet your specific pest control needs and budget.', image: '/hero/why pestyfi - sec 6/7.webp', icon: '/hero/hero icons/5 lakh.webp' },
+  { title: 'Advanced Pest Control Technology', text: 'We utilize modern equipment, scientifically proven treatment methods, and industry-approved products for maximum effectiveness.', image: '/hero/why pestyfi - sec 6/8.webp', icon: '/hero/hero icons/ecofriendly.webp' },
+  { title: 'Long-Term Protection', text: 'Our treatments focus not only on eliminating pests but also on preventing future infestations through monitoring and preventive measures.', image: '/hero/why pestyfi - sec 6/9.webp', icon: '/hero/hero icons/30 years.webp' },
 ]
 
 export const SERVICES = [
@@ -54,12 +54,16 @@ export const SERVICES = [
     title: 'General Pest Control',
     text: 'Eliminates common household pests including cockroaches, ants, spiders, silverfish, and crawling insects with long-term protection.',
     image: '/hero/services sec 7/7.webp',
+    bestFor: 'General disinfection against common crawling insects',
+    includes: ['Cockroaches & Ants', 'Spiders & Silverfish', 'Baseboard Spraying', 'Drain Treatment'],
   },
   {
     id: 'herbal',
     title: 'Herbal Pest Control',
     text: 'Natural, eco-friendly formulations that minimize chemical exposure while delivering excellent results.',
     image: '/hero/services sec 7/8.webp',
+    bestFor: 'Eco-conscious households, homes with pets/infants',
+    includes: ['Eco-friendly Formulations', 'Kid & Pet Safe Ingredients', 'Natural Plant Extracts', 'Odourless Application'],
   },
   {
     id: 'cockroach',

@@ -94,9 +94,26 @@ function App() {
 
       {/* 2. Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-forest text-cream">
-        <div className="containerX flex items-center justify-between gap-4 py-3">
-          <Logo onDark size="md" />
+        <div className="containerX relative flex items-center justify-between gap-4 py-3">
+          {/* Left: Hamburger Menu */}
+          <button
+            type="button"
+            className="navToggle rounded-lg p-2 hover:bg-white/10"
+            aria-expanded="false"
+            aria-controls="navDrawer"
+            aria-label="Open menu"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
 
+          {/* Center: Pestyfi Logo */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
+            <Logo onDark size="md" />
+          </div>
+
+          {/* Right: Location & Profile */}
           <div className="flex items-center gap-3">
             {/* Location Selector */}
             <button
@@ -123,18 +140,6 @@ function App() {
               </span>
               <svg className="h-3.5 w-3.5 text-cream/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            <button
-              type="button"
-              className="navToggle rounded-lg p-2 hover:bg-white/10"
-              aria-expanded="false"
-              aria-controls="navDrawer"
-              aria-label="Open menu"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
 
@@ -300,13 +305,13 @@ function App() {
             <div className="reveal">
               <SectionHead
                 title="In Mumbai, Pest Control Is Not a Reaction. It Is Home Maintenance."
-                subtitle="You don't wait for your AC to stop working before servicing it. You don't wait for your water purifier to fail before changing the filter. So why wait for pests to show up before protecting your home?"
+                subtitle="You do not wait for your AC to stop working before servicing it. You do not wait for your water purifier to fail before changing the filter. So why wait for cockroaches, termites, ants, mosquitoes, or rodents to show up before protecting your home?"
               />
               <p className="mt-5 text-sm leading-relaxed text-ink/70">
-                Mumbai's humidity, coastal weather, drainage systems, high-rise apartments, food waste, and monsoon moisture make homes naturally attractive to pests. By the time you see them, they may already be hiding, breeding, or spreading inside your home.
+                Mumbai’s humidity, coastal weather, drainage systems, high-rise apartments, food waste, and monsoon moisture make homes naturally attractive to pests. The problem is simple. By the time you see pests, they may already be hiding, breeding, or spreading inside your home.
               </p>
               <p className="mt-4 text-sm font-medium text-forest">
-                Pestyfi helps you prevent the problem before it becomes visible, stressful, and expensive.
+                Pestyfi helps you prevent the problem before it becomes visible.
               </p>
               <Cta href="#book" className="mt-6">Book Preventive Pest Protection</Cta>
             </div>
@@ -444,6 +449,23 @@ function App() {
                     <div>
                       <h3 className="text-sm font-bold text-forest">{s.title}</h3>
                       <p className="mt-2 text-xs leading-relaxed text-ink/70">{s.text}</p>
+                      {s.bestFor && (
+                        <p className="mt-2.5 text-[11px] font-semibold text-forest/90">
+                          Best for: <span className="font-normal text-ink/70">{s.bestFor}</span>
+                        </p>
+                      )}
+                      {s.includes && s.includes.length > 0 && (
+                        <div className="mt-3">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-forest/50">Includes</div>
+                          <ul className="mt-1 space-y-0.5">
+                            {s.includes.map((inc) => (
+                              <li key={inc} className="text-[11px] text-ink/70 flex items-center gap-1.5">
+                                <span className="text-eco font-bold" aria-hidden="true">✓</span> {inc}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                     <a href="#book" className="mt-4 inline-block text-xs font-semibold text-green hover:text-forest">Book Now →</a>
                   </div>
@@ -542,6 +564,23 @@ function App() {
                 <p className="mt-4 text-sm leading-relaxed text-ink/70">
                   We bring together the trust of Hindustan Pest Control with the speed, safety, and convenience today's homes expect. We do not just treat pests — we protect the feeling of comfort inside your home.
                 </p>
+                <p className="mt-4 text-sm leading-relaxed text-ink/70">
+                  Most families delay pest control because they think it will disturb their home. They worry about chemical smells, children, pets, utensils, furniture, and whether the pests will actually stay away. So we built Pestyfi differently.
+                </p>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {[
+                    'Safe for kids and pets',
+                    'Odourless and eco-friendly',
+                    'Handled by certified hygiene experts',
+                    'Backed by 365-day support',
+                    'Convenient enough for busy homes',
+                    'Strong enough to actually work',
+                  ].map((feat) => (
+                    <div key={feat} className="flex items-center gap-2 text-xs font-semibold text-forest">
+                      <span className="text-eco font-bold" aria-hidden="true">✓</span> {feat}
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="reveal">
                 <img
