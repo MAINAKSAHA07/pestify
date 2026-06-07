@@ -1,10 +1,25 @@
 import { useState, useEffect } from 'react'
 import { pb } from '../lib/pocketbase'
 
+const displayAddress = (addressStr) => {
+  if (!addressStr) return 'Not set'
+  try {
+    const trimmed = addressStr.trim()
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      const parsed = JSON.parse(trimmed)
+      const parts = [parsed.flat, parsed.building, parsed.society, parsed.area, parsed.city].map(s => s?.trim()).filter(Boolean)
+      return parts.join(', ') + (parsed.pincode ? ` - ${parsed.pincode}` : '')
+    }
+  } catch (e) {}
+  return addressStr
+}
+
 export default function BackendDashboard() {
   const [currentUser, setCurrentUser] = useState(pb.authStore.model)
   const [bookings, setBookings] = useState([])
   const [usersList, setUsersList] = useState([])
+  const [customersList, setCustomersList] = useState([])
+  const [leadsList, setLeadsList] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -90,7 +105,25 @@ export default function BackendDashboard() {
           })
       : Promise.resolve()
 
-    Promise.all([fetchBookings, fetchUsers]).finally(() => {
+    // Fetch Customers if Admin or Superadmin
+    const fetchCustomers = currentUser.role === 'admin' || currentUser.role === 'superadmin'
+      ? pb.collection('customers')
+          .getFullList({ sort: '-created' })
+          .then((res) => setCustomersList(res))
+          .catch((err) => {
+            console.error('Failed to fetch customers:', err)
+          })
+      : Promise.resolve()
+
+    // Fetch Leads (All authenticated staff can view leads)
+    const fetchLeads = pb.collection('leads')
+      .getFullList({ sort: '-created' })
+      .then((res) => setLeadsList(res))
+      .catch((err) => {
+        console.error('Failed to fetch leads:', err)
+      })
+
+    Promise.all([fetchBookings, fetchUsers, fetchCustomers, fetchLeads]).finally(() => {
       setLoading(false)
     })
   }, [currentUser])
@@ -176,6 +209,21 @@ export default function BackendDashboard() {
     }
   }
 
+  // Delete lead (Admin/Superadmin Only)
+  const handleDeleteLead = async (leadId) => {
+    if (!window.confirm('Are you absolutely sure you want to delete this lead record? This action cannot be undone.')) return
+    setError('')
+    setSuccess('')
+
+    try {
+      await pb.collection('leads').delete(leadId)
+      setLeadsList(prev => prev.filter(l => l.id !== leadId))
+      showToast('Lead deleted successfully.')
+    } catch (err) {
+      setError(err?.message || 'Failed to delete lead.')
+    }
+  }
+
   // Update user role (Admin/Superadmin Only)
   const handleRoleChange = async (userId, newRole) => {
     if (userId === currentUser.id) {
@@ -183,11 +231,17 @@ export default function BackendDashboard() {
       return
     }
 
-    const targetUser = usersList.find(u => u.id === userId)
+    // Find the target user in either usersList or customersList
+    let targetUser = usersList.find(u => u.id === userId)
+    if (!targetUser) {
+      targetUser = customersList.find(c => c.id === userId)
+    }
+
     if (!targetUser) return
 
     // Guard: Only superadmins can assign or modify roles involving superadmin
-    if ((targetUser.role === 'superadmin' || newRole === 'superadmin') && currentUser.role !== 'superadmin') {
+    const currentRole = targetUser.role || 'customer'
+    if ((currentRole === 'superadmin' || newRole === 'superadmin') && currentUser.role !== 'superadmin') {
       alert('Only a Super Administrator can assign or modify the Super Administrator role.');
       return
     }
@@ -196,10 +250,57 @@ export default function BackendDashboard() {
     setSuccess('')
 
     try {
+      // Step 1: Update user role in 'users' collection
       const updated = await pb.collection('users').update(userId, { role: newRole })
-      setUsersList(prev => prev.map(u => u.id === userId ? updated : u))
-      showToast(`Role updated to ${newRole}!`)
+      
+      // Update local state for usersList
+      setUsersList(prev => {
+        const exists = prev.some(u => u.id === userId)
+        if (exists) {
+          return prev.map(u => u.id === userId ? updated : u)
+        } else if (newRole !== 'customer') {
+          return [updated, ...prev]
+        }
+        return prev
+      })
+
+      // Step 2: Handle synchronizing with the 'customers' collection
+      if (newRole === 'customer') {
+        // Demoted/changed to customer: insert/update in customers collection
+        try {
+          const addr = targetUser.address || ''
+          const customerData = {
+            id: userId,
+            name: targetUser.name || '',
+            email: targetUser.email || '',
+            phone: targetUser.phone || '',
+            address: typeof addr === 'object' ? JSON.stringify(addr) : addr
+          }
+          const newCustomer = await pb.collection('customers').create(customerData)
+          setCustomersList(prev => [newCustomer, ...prev])
+        } catch (e) {
+          // If already exists, update it
+          const addr = targetUser.address || ''
+          await pb.collection('customers').update(userId, {
+            name: targetUser.name || '',
+            email: targetUser.email || '',
+            phone: targetUser.phone || '',
+            address: typeof addr === 'object' ? JSON.stringify(addr) : addr
+          })
+        }
+      } else {
+        // Promoted/changed to staff: delete from customers collection
+        try {
+          await pb.collection('customers').delete(userId)
+          setCustomersList(prev => prev.filter(c => c.id !== userId))
+        } catch (e) {
+          // Ignore if it wasn't in customers collection
+        }
+      }
+
+      showToast(`Role updated successfully to ${newRole}!`)
     } catch (err) {
+      console.error('Failed to update user role:', err)
       setError(err?.message || 'Failed to update user role.')
     }
   }
@@ -494,30 +595,52 @@ export default function BackendDashboard() {
         )}
 
         {/* Admin/Employee/Superadmin Navigation Tabs */}
-        {(currentUser.role === 'admin' || currentUser.role === 'superadmin') && (
-          <div className="flex border-b border-black/5">
-            <button
-              onClick={() => setActiveTab('bookings')}
-              className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition ${
-                activeTab === 'bookings' 
-                  ? 'border-forest text-forest' 
-                  : 'border-transparent text-ink/40 hover:text-ink/65'
-              }`}
-            >
-              📋 Booking Operations ({filteredBookings.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition ${
-                activeTab === 'users' 
-                  ? 'border-forest text-forest' 
-                  : 'border-transparent text-ink/40 hover:text-ink/65'
-              }`}
-            >
-              👥 User Accounts ({usersList.length})
-            </button>
-          </div>
-        )}
+        <div className="flex border-b border-black/5 flex-wrap">
+          <button
+            onClick={() => setActiveTab('bookings')}
+            className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition ${
+              activeTab === 'bookings' 
+                ? 'border-forest text-forest' 
+                : 'border-transparent text-ink/40 hover:text-ink/65'
+            }`}
+          >
+            📋 Booking Operations ({filteredBookings.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('leads')}
+            className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition ${
+              activeTab === 'leads' 
+                ? 'border-forest text-forest' 
+                : 'border-transparent text-ink/40 hover:text-ink/65'
+            }`}
+          >
+            📍 Service Leads ({leadsList.length})
+          </button>
+          {(currentUser.role === 'admin' || currentUser.role === 'superadmin') && (
+            <>
+              <button
+                onClick={() => setActiveTab('staff')}
+                className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition ${
+                  activeTab === 'staff' 
+                    ? 'border-forest text-forest' 
+                    : 'border-transparent text-ink/40 hover:text-ink/65'
+                }`}
+              >
+                👥 Staff Accounts ({usersList.filter(u => u.role === 'admin' || u.role === 'employee' || u.role === 'superadmin').length})
+              </button>
+              <button
+                onClick={() => setActiveTab('customers')}
+                className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition ${
+                  activeTab === 'customers' 
+                    ? 'border-forest text-forest' 
+                    : 'border-transparent text-ink/40 hover:text-ink/65'
+                }`}
+              >
+                👤 Customer Accounts ({customersList.length})
+              </button>
+            </>
+          )}
+        </div>
 
         {activeTab === 'bookings' ? (
           <>
@@ -694,9 +817,63 @@ export default function BackendDashboard() {
               )}
             </div>
           </>
-        ) : (
+        ) : activeTab === 'leads' ? (
+          /* Out-of-Service Leads View */
+          <div className="bg-white rounded-2xl border border-black/5 overflow-hidden shadow-sm">
+            <div className="bg-cream/45 border-b border-black/5 py-4 px-6">
+              <h2 className="font-serif text-base font-bold text-forest">Out-of-Service Leads</h2>
+              <p className="text-xs text-ink/50 mt-0.5">Prospects who requested service in unserviceable PIN codes</p>
+            </div>
+
+            {leadsList.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-cream/15 border-b border-black/5 text-[10px] font-bold text-forest uppercase tracking-wider">
+                      <th className="py-3 px-6">Lead ID</th>
+                      <th className="py-3 px-6">Full Name</th>
+                      <th className="py-3 px-6">Contact Phone</th>
+                      <th className="py-3 px-6">Requested Location / PIN</th>
+                      <th className="py-3 px-6">Date Registered</th>
+                      {(currentUser.role === 'admin' || currentUser.role === 'superadmin') && (
+                        <th className="py-3 px-6 text-right">Actions</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/5">
+                    {leadsList.map((lead) => (
+                      <tr key={lead.id} className="hover:bg-cream/10 transition">
+                        <td className="py-4 px-6 font-mono text-[10px] text-ink/50">{lead.id}</td>
+                        <td className="py-4 px-6 font-semibold text-forest">{lead.fullName}</td>
+                        <td className="py-4 px-6 font-semibold">{lead.phone}</td>
+                        <td className="py-4 px-6">{lead.location}</td>
+                        <td className="py-4 px-6">
+                          {new Date(lead.created).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </td>
+                        {(currentUser.role === 'admin' || currentUser.role === 'superadmin') && (
+                          <td className="py-4 px-6 text-right">
+                            <button
+                              onClick={() => handleDeleteLead(lead.id)}
+                              className="inline-flex items-center justify-center h-8 px-2.5 rounded bg-urgent/5 hover:bg-urgent/10 text-urgent font-bold transition"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-16 text-center text-ink/45 font-medium">
+                No out-of-service leads registered at the moment.
+              </div>
+            )}
+          </div>
+        ) : activeTab === 'staff' && (currentUser.role === 'admin' || currentUser.role === 'superadmin') ? (
           /* System User Roles Manager (Admin/Superadmin Only) */
-          <div className="space-y-6">
+          <div className="space-y-8 font-sans">
             {currentUser.role === 'superadmin' && (
               <div className="bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
                 <h3 className="font-serif text-base font-bold text-forest mb-4">Add Staff / User Account</h3>
@@ -771,9 +948,10 @@ export default function BackendDashboard() {
               </div>
             )}
 
+            {/* Staff & Administrative Accounts Table */}
             <div className="bg-white rounded-2xl border border-black/5 overflow-hidden shadow-sm">
               <div className="bg-cream/45 border-b border-black/5 py-4 px-6">
-                <h2 className="font-serif text-base font-bold text-forest">Staff Roles & Access Permissions</h2>
+                <h2 className="font-serif text-base font-bold text-forest">Staff & Administrative Accounts</h2>
                 <p className="text-xs text-ink/50 mt-0.5">Control employee roles, edit systems backend access profiles</p>
               </div>
 
@@ -789,12 +967,70 @@ export default function BackendDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/5">
-                    {usersList.map((user) => {
-                      const isOwnAccount = user.id === currentUser.id;
-                      const isTargetSuperadmin = user.role === 'superadmin';
+                    {usersList
+                      .filter(user => user.role === 'admin' || user.role === 'employee' || user.role === 'superadmin')
+                      .map((user) => {
+                        const isOwnAccount = user.id === currentUser.id;
+                        const isTargetSuperadmin = user.role === 'superadmin';
+                        const isCurrentSuperadmin = currentUser.role === 'superadmin';
+                        // Restrict editing role: cannot edit own, and only superadmin can edit role of another superadmin
+                        const canEditRole = !isOwnAccount && (!isTargetSuperadmin || isCurrentSuperadmin);
+
+                        return (
+                          <tr key={user.id} className="hover:bg-cream/10 transition">
+                            <td className="py-4 px-6 font-mono text-[10px] text-ink/50">{user.id}</td>
+                            <td className="py-4 px-6 font-semibold text-forest">{user.name || 'Not set'}</td>
+                            <td className="py-4 px-6 font-semibold">{user.email}</td>
+                            <td className="py-4 px-6 text-ink/60">{user.phone || 'Not set'}</td>
+                            <td className="py-4 px-6">
+                              <select
+                                value={user.role || 'customer'}
+                                disabled={!canEditRole}
+                                onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                className="h-8 rounded border border-black/10 bg-white px-2 py-1 text-xs font-semibold text-forest focus:outline-none focus:ring-1 focus:ring-forest cursor-pointer disabled:opacity-50"
+                              >
+                                <option value="customer">Customer (Public No-Access)</option>
+                                <option value="employee">Employee (View Bookings, Update Status)</option>
+                                <option value="admin">Administrator (Full Access & Controls)</option>
+                                {(isCurrentSuperadmin || isTargetSuperadmin) && (
+                                  <option value="superadmin">Super Administrator (All Privileges)</option>
+                                )}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'customers' && (currentUser.role === 'admin' || currentUser.role === 'superadmin') ? (
+          /* Registered Customer Accounts Table (Customers Tab Only) */
+          <div className="bg-white rounded-2xl border border-black/5 overflow-hidden shadow-sm">
+            <div className="bg-cream/45 border-b border-black/5 py-4 px-6">
+              <h2 className="font-serif text-base font-bold text-forest">Registered Customer Accounts</h2>
+              <p className="text-xs text-ink/50 mt-0.5">List of registered clients and their service addresses</p>
+            </div>
+
+            {customersList.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-cream/15 border-b border-black/5 text-[10px] font-bold text-forest uppercase tracking-wider">
+                      <th className="py-3 px-6">Customer ID</th>
+                      <th className="py-3 px-6">Full Name</th>
+                      <th className="py-3 px-6">Email Address</th>
+                      <th className="py-3 px-6">Contact Phone</th>
+                      <th className="py-3 px-6">Home / Service Address</th>
+                      <th className="py-3 px-6">Promote Role</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/5">
+                    {customersList.map((user) => {
                       const isCurrentSuperadmin = currentUser.role === 'superadmin';
-                      // Restrict editing role: cannot edit own, and only superadmin can edit role of another superadmin
-                      const canEditRole = !isOwnAccount && (!isTargetSuperadmin || isCurrentSuperadmin);
+                      const isCurrentAdmin = currentUser.role === 'admin';
+                      const canPromote = isCurrentSuperadmin || isCurrentAdmin;
 
                       return (
                         <tr key={user.id} className="hover:bg-cream/10 transition">
@@ -802,18 +1038,21 @@ export default function BackendDashboard() {
                           <td className="py-4 px-6 font-semibold text-forest">{user.name || 'Not set'}</td>
                           <td className="py-4 px-6 font-semibold">{user.email}</td>
                           <td className="py-4 px-6 text-ink/60">{user.phone || 'Not set'}</td>
+                          <td className="py-4 px-6 max-w-xs truncate" title={displayAddress(user.address)}>
+                            {displayAddress(user.address)}
+                          </td>
                           <td className="py-4 px-6">
                             <select
                               value={user.role || 'customer'}
-                              disabled={!canEditRole}
+                              disabled={!canPromote}
                               onChange={(e) => handleRoleChange(user.id, e.target.value)}
                               className="h-8 rounded border border-black/10 bg-white px-2 py-1 text-xs font-semibold text-forest focus:outline-none focus:ring-1 focus:ring-forest cursor-pointer disabled:opacity-50"
                             >
-                              <option value="customer">Customer (Public No-Access)</option>
-                              <option value="employee">Employee (View Bookings, Update Status)</option>
-                              <option value="admin">Administrator (Full Access & Controls)</option>
-                              {(isCurrentSuperadmin || isTargetSuperadmin) && (
-                                <option value="superadmin">Super Administrator (All Privileges)</option>
+                              <option value="customer">Customer</option>
+                              <option value="employee">Employee</option>
+                              <option value="admin">Admin</option>
+                              {isCurrentSuperadmin && (
+                                <option value="superadmin">Super Admin</option>
                               )}
                             </select>
                           </td>
@@ -823,7 +1062,15 @@ export default function BackendDashboard() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            ) : (
+              <div className="py-16 text-center text-ink/45 font-medium">
+                No registered customers found.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="py-16 text-center text-ink/45 font-medium bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
+            Please select a valid tab to view details.
           </div>
         )}
       </main>
