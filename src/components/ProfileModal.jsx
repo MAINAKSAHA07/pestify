@@ -293,6 +293,18 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
               <div className="grid gap-2 text-sm">
                 <div><span className="font-medium text-ink/50">Name:</span> <span className="font-semibold text-forest">{currentUser.name || 'Not set'}</span></div>
                 <div><span className="font-medium text-ink/50">Email:</span> <span className="font-semibold text-forest">{currentUser.email}</span></div>
+                {currentUser.role && currentUser.role !== 'customer' && (
+                  <div>
+                    <span className="font-medium text-ink/50">Account Role:</span>{' '}
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold uppercase border ${
+                      currentUser.role === 'admin' 
+                        ? 'bg-eco/10 border-eco/20 text-green' 
+                        : 'bg-amber/10 border-amber/20 text-amber'
+                    }`}>
+                      {currentUser.role}
+                    </span>
+                  </div>
+                )}
                 <div><span className="font-medium text-ink/50">Phone:</span> <span className="font-semibold text-forest">{displayPhone}</span></div>
                 <div><span className="font-medium text-ink/50">Home Address:</span> <span className="font-semibold text-forest block mt-1 whitespace-pre-wrap">{displayAddress}</span></div>
               </div>

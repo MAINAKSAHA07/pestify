@@ -9,6 +9,7 @@ import BookingWizard from './components/BookingWizard'
 import LocationModal from './components/LocationModal'
 import ScrollRevealText from './components/ScrollRevealText'
 import ProfileModal from './components/ProfileModal'
+import BackendDashboard from './components/BackendDashboard'
 import {
   ANNOUNCEMENT,
   NAV_LINKS,
@@ -49,6 +50,15 @@ function App() {
   const [currentUser, setCurrentUser] = useState(pb.authStore.model)
   const [isAuthOpen, setIsAuthOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [currentPath, setCurrentPath] = useState(window.location.pathname)
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
   const [locationInfo, setLocationInfo] = useState(() => {
     const saved = localStorage.getItem('pestyfi_location')
     return saved ? JSON.parse(saved) : null
@@ -86,6 +96,10 @@ function App() {
 
   const cockroach = SERVICES.find((s) => s.id === 'cockroach')
   const otherServices = SERVICES.filter((s) => s.id !== 'cockroach')
+
+  if (currentPath === '/backend') {
+    return <BackendDashboard />
+  }
 
   return (
     <div className="min-h-dvh bg-cream text-ink pb-20 md:pb-0">
@@ -185,9 +199,24 @@ function App() {
                         </svg>
                         My Profile & Bookings
                       </button>
+                      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'employee') && (
+                        <button
+                          onClick={() => {
+                            setIsDropdownOpen(false)
+                            window.history.pushState({}, '', '/backend')
+                            window.dispatchEvent(new PopStateEvent('popstate'))
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
+                        >
+                          <svg className="h-4 w-4 text-eco" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          Administrative Panel
+                        </button>
+                      )}
                       <button
                         onClick={handleSignOut}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors border-t border-white/5"
                       >
                         <svg className="h-4 w-4 text-urgent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -348,16 +377,6 @@ function App() {
                 alt="House cross-section showing typical pest infestations"
                 className="w-full rounded-2xl shadow-premium border border-black/5 object-cover"
               />
-              <div className="cardX p-5">
-                <ul className="space-y-3.5 text-sm text-ink/75">
-                  {['AC servicing before breakdown', 'Water filter before failure', 'Pest protection before infestation'].map((item, i) => (
-                    <li key={item} className="flex items-center gap-3">
-                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-lime text-xs font-bold text-forest">{i + 1}</span>
-                      <span className="font-semibold text-forest">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
           </div>
         </section>
@@ -823,6 +842,46 @@ function App() {
           </div>
         </section>
       </main>
+
+      {/* 15. Trusted Credentials & Approvals */}
+      <section className="bg-cream/35 py-12 border-t border-black/5">
+        <div className="containerX">
+          <div className="text-center mb-8 reveal">
+            <h3 className="font-serif text-lg font-bold text-forest">Trusted Credentials & Government Approvals</h3>
+            <p className="text-xs text-ink/60 mt-1">Our certifications, industry approvals, and major clients who trust us</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 px-4">
+            {[
+              { src: '/trusted-logo-webp/indian-army-logo-two-swords-and-anchor-y8zzqnzoat79fdj7.webp', alt: 'Indian Army' },
+              { src: '/trusted-logo-webp/70-708897_india-post-logo.webp', alt: 'India Post' },
+              { src: '/trusted-logo-webp/peso-approval.webp', alt: 'PESO Approved' },
+              { src: '/trusted-logo-webp/logos for pestyfi.webp', alt: 'Pestyfi Logos' },
+              { src: '/trusted-logo-webp/IMG_7008.webp', alt: 'ISO Certified' },
+              { src: '/trusted-logo-webp/IMG_7009.webp', alt: 'Government Certified' },
+              { src: '/trusted-logo-webp/IMG_7010.webp', alt: 'Safety Approved' },
+              { src: '/trusted-logo-webp/IMG_7015.webp', alt: 'HACCP Certified' },
+              { src: '/trusted-logo-webp/IMG_7016.webp', alt: 'WHO Compliant' },
+              { src: '/trusted-logo-webp/IMG_7017.webp', alt: 'Make In India' },
+              { src: '/trusted-logo-webp/IMG_7018.webp', alt: 'Startup India' },
+              { src: '/trusted-logo-webp/IMG_7019.webp', alt: 'MSME Registered' },
+              { src: '/trusted-logo-webp/IMG_7020.webp', alt: 'Eco Friendly Certificate' },
+              { src: '/trusted-logo-webp/IMG_7021.webp', alt: 'Organic Pest Association' },
+              { src: '/trusted-logo-webp/IMG_7022.webp', alt: 'Chemical Safety Association' },
+              { src: '/trusted-logo-webp/IMG_7023.webp', alt: 'NPOP Organic India' },
+              { src: '/trusted-logo-webp/IMG_7024.webp', alt: 'Swachh Bharat partner' }
+            ].map((badge, idx) => (
+              <div key={idx} className="h-10 md:h-12 flex items-center justify-center grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
+                <img
+                  src={badge.src}
+                  alt={badge.alt}
+                  className="h-full w-auto object-contain max-w-[120px]"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* 16. Footer */}
       <footer className="bg-forest text-cream">
