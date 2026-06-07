@@ -297,9 +297,11 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
                   <div>
                     <span className="font-medium text-ink/50">Account Role:</span>{' '}
                     <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold uppercase border ${
-                      currentUser.role === 'admin' 
-                        ? 'bg-eco/10 border-eco/20 text-green' 
-                        : 'bg-amber/10 border-amber/20 text-amber'
+                      currentUser.role === 'superadmin'
+                        ? 'bg-purple-500/10 border-purple-500/20 text-purple-600'
+                        : currentUser.role === 'admin' 
+                          ? 'bg-eco/10 border-eco/20 text-green' 
+                          : 'bg-amber/10 border-amber/20 text-amber'
                     }`}>
                       {currentUser.role}
                     </span>

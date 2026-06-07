@@ -199,7 +199,7 @@ function App() {
                         </svg>
                         My Profile & Bookings
                       </button>
-                      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'employee') && (
+                      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'employee' || currentUser.role === 'superadmin') && (
                         <button
                           onClick={() => {
                             setIsDropdownOpen(false)
@@ -689,13 +689,46 @@ function App() {
           </div>
         </section>
 
-        {/* 12. Reviews */}
+        {/* 12. Reviews & Trust Credentials */}
         <section id="reviews" className="bg-white/60 py-16 md:py-20">
           <div className="containerX">
             <SectionHead
               title="When people trust you with their home, pest control cannot be careless."
               subtitle="That is why Pestyfi focuses on safety, hygiene, convenience, and long-term protection."
             />
+
+            {/* Trusted Credentials & Approvals (Merged directly here) */}
+            <div className="reveal mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 px-4 py-6 border-b border-black/5">
+              {[
+                { src: '/trusted-logo-webp/indian-army-logo-two-swords-and-anchor-y8zzqnzoat79fdj7.webp', alt: 'Indian Army' },
+                { src: '/trusted-logo-webp/70-708897_india-post-logo.webp', alt: 'India Post' },
+                { src: '/trusted-logo-webp/peso-approval.webp', alt: 'PESO Approved' },
+                { src: '/trusted-logo-webp/logos for pestyfi.webp', alt: 'Pestyfi Logos' },
+                { src: '/trusted-logo-webp/IMG_7008.webp', alt: 'ISO Certified' },
+                { src: '/trusted-logo-webp/IMG_7009.webp', alt: 'Government Certified' },
+                { src: '/trusted-logo-webp/IMG_7010.webp', alt: 'Safety Approved' },
+                { src: '/trusted-logo-webp/IMG_7015.webp', alt: 'HACCP Certified' },
+                { src: '/trusted-logo-webp/IMG_7016.webp', alt: 'WHO Compliant' },
+                { src: '/trusted-logo-webp/IMG_7017.webp', alt: 'Make In India' },
+                { src: '/trusted-logo-webp/IMG_7018.webp', alt: 'Startup India' },
+                { src: '/trusted-logo-webp/IMG_7019.webp', alt: 'MSME Registered' },
+                { src: '/trusted-logo-webp/IMG_7020.webp', alt: 'Eco Friendly Certificate' },
+                { src: '/trusted-logo-webp/IMG_7021.webp', alt: 'Organic Pest Association' },
+                { src: '/trusted-logo-webp/IMG_7022.webp', alt: 'Chemical Safety Association' },
+                { src: '/trusted-logo-webp/IMG_7023.webp', alt: 'NPOP Organic India' },
+                { src: '/trusted-logo-webp/IMG_7024.webp', alt: 'Swachh Bharat partner' }
+              ].map((badge, idx) => (
+                <div key={idx} className="h-8 md:h-10 flex items-center justify-center grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
+                  <img
+                    src={badge.src}
+                    alt={badge.alt}
+                    className="h-full w-auto object-contain max-w-[100px]"
+                    loading="lazy"
+                  />
+                </div>
+              ))}
+            </div>
+
             <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {REVIEWS.map((r) => (
                 <figure key={r.n} className="reveal cardX p-5">
@@ -842,46 +875,6 @@ function App() {
           </div>
         </section>
       </main>
-
-      {/* 15. Trusted Credentials & Approvals */}
-      <section className="bg-cream/35 py-12 border-t border-black/5">
-        <div className="containerX">
-          <div className="text-center mb-8 reveal">
-            <h3 className="font-serif text-lg font-bold text-forest">Trusted Credentials & Government Approvals</h3>
-            <p className="text-xs text-ink/60 mt-1">Our certifications, industry approvals, and major clients who trust us</p>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 px-4">
-            {[
-              { src: '/trusted-logo-webp/indian-army-logo-two-swords-and-anchor-y8zzqnzoat79fdj7.webp', alt: 'Indian Army' },
-              { src: '/trusted-logo-webp/70-708897_india-post-logo.webp', alt: 'India Post' },
-              { src: '/trusted-logo-webp/peso-approval.webp', alt: 'PESO Approved' },
-              { src: '/trusted-logo-webp/logos for pestyfi.webp', alt: 'Pestyfi Logos' },
-              { src: '/trusted-logo-webp/IMG_7008.webp', alt: 'ISO Certified' },
-              { src: '/trusted-logo-webp/IMG_7009.webp', alt: 'Government Certified' },
-              { src: '/trusted-logo-webp/IMG_7010.webp', alt: 'Safety Approved' },
-              { src: '/trusted-logo-webp/IMG_7015.webp', alt: 'HACCP Certified' },
-              { src: '/trusted-logo-webp/IMG_7016.webp', alt: 'WHO Compliant' },
-              { src: '/trusted-logo-webp/IMG_7017.webp', alt: 'Make In India' },
-              { src: '/trusted-logo-webp/IMG_7018.webp', alt: 'Startup India' },
-              { src: '/trusted-logo-webp/IMG_7019.webp', alt: 'MSME Registered' },
-              { src: '/trusted-logo-webp/IMG_7020.webp', alt: 'Eco Friendly Certificate' },
-              { src: '/trusted-logo-webp/IMG_7021.webp', alt: 'Organic Pest Association' },
-              { src: '/trusted-logo-webp/IMG_7022.webp', alt: 'Chemical Safety Association' },
-              { src: '/trusted-logo-webp/IMG_7023.webp', alt: 'NPOP Organic India' },
-              { src: '/trusted-logo-webp/IMG_7024.webp', alt: 'Swachh Bharat partner' }
-            ].map((badge, idx) => (
-              <div key={idx} className="h-10 md:h-12 flex items-center justify-center grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
-                <img
-                  src={badge.src}
-                  alt={badge.alt}
-                  className="h-full w-auto object-contain max-w-[120px]"
-                  loading="lazy"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* 16. Footer */}
       <footer className="bg-forest text-cream">

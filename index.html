@@ -31,8 +31,17 @@
     <link rel="preconnect" href="https://checkout.razorpay.com" />
     <link rel="preconnect" href="https://cdn.razorpay.com" crossorigin />
     
-    <!-- Preload hero LCP image -->
-    <link rel="preload" as="image" href="/hero/hero image /final/1.webp" fetchpriority="high" />
+    <!-- Preload hero LCP image (dynamically injected only on non-backend pages to avoid unused preloads) -->
+    <script>
+      if (window.location.pathname !== '/backend') {
+        const link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'image';
+        link.href = '/hero/hero image /final/1.webp';
+        link.setAttribute('fetchpriority', 'high');
+        document.head.appendChild(link);
+      }
+    </script>
     <link
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&family=Bebas+Neue&display=swap"
       rel="stylesheet"
