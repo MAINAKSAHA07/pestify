@@ -1,5 +1,5 @@
 export const ANNOUNCEMENT =
-  'Get 20% OFF on prepaid bookings + a Pestyfi Home Protection Kit worth ₹1,499 FREE with your first service.'
+  'Get a FREE Pestyfi Home Protection Kit worth ₹1,499 with your first service.'
 
 export const NAV_LINKS = [
   { label: 'Home', href: '#top' },

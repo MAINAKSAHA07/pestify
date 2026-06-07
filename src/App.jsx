@@ -102,7 +102,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-dvh bg-cream text-ink pb-20 md:pb-0">
+    <div className="min-h-dvh bg-cream text-ink pb-20 md:pb-0 overflow-x-hidden">
       <Loader />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">
         Skip to content
@@ -115,34 +115,39 @@ function App() {
 
       {/* 2. Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-forest text-cream">
-        <div className="containerX relative flex items-center justify-between gap-4 py-3">
-          {/* Left: Hamburger Menu */}
-          <button
-            type="button"
-            className="navToggle rounded-lg p-2 hover:bg-white/10"
-            aria-expanded="false"
-            aria-controls="navDrawer"
-            aria-label="Open menu"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
+        <div className="containerX relative flex items-center justify-between gap-2 py-3">
+          {/* Left: Hamburger Menu & Mobile Logo */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className="navToggle rounded-lg p-2 hover:bg-white/10"
+              aria-expanded="false"
+              aria-controls="navDrawer"
+              aria-label="Open menu"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <div className="flex items-center md:hidden ml-1">
+              <Logo onDark size="md" />
+            </div>
+          </div>
 
-          {/* Center: Pestyfi Logo */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
+          {/* Center: Pestyfi Logo (Tablet/Desktop Only) */}
+          <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center">
             <Logo onDark size="md" />
           </div>
 
           {/* Right: Location & Profile */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             {/* Location Selector */}
             <button
               onClick={() => setIsLocationOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs font-semibold hover:bg-white/10 transition-all text-cream focus:outline-none ring-1 ring-white/5"
+              className="flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs font-semibold hover:bg-white/10 transition-all text-cream focus:outline-none ring-1 ring-white/5"
             >
               <span>📍</span>
-              <span className="max-w-[85px] sm:max-w-none truncate">
+              <span className="max-w-[70px] sm:max-w-none truncate">
                 {locationInfo ? (
                   locationInfo.serviceable ? (
                     <>
@@ -159,7 +164,7 @@ function App() {
                   'Location'
                 )}
               </span>
-              <svg className="h-3.5 w-3.5 text-cream/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-3.5 w-3.5 text-cream/70 hidden sm:inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
@@ -168,13 +173,13 @@ function App() {
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold ring-1 ring-white/25 hover:bg-white/15 sm:text-sm transition-all focus:outline-none"
+                  className="flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold ring-1 ring-white/25 hover:bg-white/15 transition-all focus:outline-none"
                 >
-                  <span className="h-2 w-2 rounded-full bg-eco animate-pulse" />
-                  <span className="max-w-[55px] sm:max-w-[150px] truncate">
+                  <span className="h-1.5 w-1.5 rounded-full bg-eco animate-pulse" />
+                  <span className="max-w-[50px] sm:max-w-[150px] truncate">
                     {currentUser.name || currentUser.email}
                   </span>
-                  <svg className={`h-4 w-4 text-cream/70 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className={`h-3.5 w-3.5 text-cream/70 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -230,7 +235,7 @@ function App() {
             ) : (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 ring-white/20 hover:bg-white/10 sm:text-sm transition-all focus:outline-none"
+                className="rounded-lg px-2 py-1 text-[11px] font-semibold ring-1 ring-white/20 hover:bg-white/10 sm:px-3 sm:py-1.5 sm:text-sm transition-all focus:outline-none"
               >
                 Login
               </button>

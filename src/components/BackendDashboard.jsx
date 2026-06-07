@@ -922,7 +922,7 @@ export default function BackendDashboard() {
                       className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-xs h-9"
                     />
                   </label>
-                  <div className="flex gap-2 h-9 items-end">
+                  <div className="flex gap-2 items-end md:h-9">
                     <label className="grid gap-1 text-xs font-semibold text-forest flex-1">
                       <span>Role</span>
                       <select
@@ -1233,7 +1233,7 @@ export default function BackendDashboard() {
               </div>
 
               {/* Payment Details */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
                   <span>Price Paid (₹)</span>
                   <input
