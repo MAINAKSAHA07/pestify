@@ -109,8 +109,11 @@ function App() {
       </a>
 
       {/* 1. Announcement Bar */}
-      <div className="bg-amber px-4 py-2.5 text-center text-xs font-semibold text-forest sm:text-sm">
-        {ANNOUNCEMENT}
+      <div className="bg-amber px-4 py-2 flex flex-col sm:flex-row items-center justify-center gap-2 text-center text-xs font-semibold text-forest sm:text-sm">
+        <span className="shrink-0 rounded-md bg-urgent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cream shadow-sm">
+          Limited Time Offer
+        </span>
+        <span>{ANNOUNCEMENT}</span>
       </div>
 
       {/* 2. Header */}
@@ -351,6 +354,38 @@ function App() {
                 </span>
               ))}
             </div>
+          </div>
+
+          {/* Government & MSME Credentials */}
+          <div className="reveal mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 px-4 py-6 border-t border-black/5 bg-cream/10">
+            {[
+              { src: '/trusted-logo-webp/indian-army-logo-two-swords-and-anchor-y8zzqnzoat79fdj7.webp', alt: 'Indian Army' },
+              { src: '/trusted-logo-webp/70-708897_india-post-logo.webp', alt: 'India Post' },
+              { src: '/trusted-logo-webp/peso-approval.webp', alt: 'PESO Approved' },
+              { src: '/trusted-logo-webp/logos for pestyfi.webp', alt: 'Pestyfi Logos' },
+              { src: '/trusted-logo-webp/IMG_7008.webp', alt: 'ISO Certified' },
+              { src: '/trusted-logo-webp/IMG_7009.webp', alt: 'Government Certified' },
+              { src: '/trusted-logo-webp/IMG_7010.webp', alt: 'Safety Approved' },
+              { src: '/trusted-logo-webp/IMG_7015.webp', alt: 'HACCP Certified' },
+              { src: '/trusted-logo-webp/IMG_7016.webp', alt: 'WHO Compliant' },
+              { src: '/trusted-logo-webp/IMG_7017.webp', alt: 'Make In India' },
+              { src: '/trusted-logo-webp/IMG_7018.webp', alt: 'Startup India' },
+              { src: '/trusted-logo-webp/IMG_7019.webp', alt: 'MSME Registered' },
+              { src: '/trusted-logo-webp/IMG_7020.webp', alt: 'Eco Friendly Certificate' },
+              { src: '/trusted-logo-webp/IMG_7021.webp', alt: 'Organic Pest Association' },
+              { src: '/trusted-logo-webp/IMG_7022.webp', alt: 'Chemical Safety Association' },
+              { src: '/trusted-logo-webp/IMG_7023.webp', alt: 'NPOP Organic India' },
+              { src: '/trusted-logo-webp/IMG_7024.webp', alt: 'Swachh Bharat partner' }
+            ].map((badge, idx) => (
+              <div key={idx} className="h-8 md:h-10 flex items-center justify-center grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
+                <img
+                  src={badge.src}
+                  alt={badge.alt}
+                  className="h-full w-auto object-contain max-w-[100px]"
+                  loading="lazy"
+                />
+              </div>
+            ))}
           </div>
         </section>
 
@@ -702,7 +737,7 @@ function App() {
               subtitle="That is why Pestyfi focuses on safety, hygiene, convenience, and long-term protection."
             />
 
-            {/* Trusted Credentials & Approvals (Merged directly here) */}
+            {/* Trusted Credentials & Approvals (Restored) */}
             <div className="reveal mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 px-4 py-6 border-b border-black/5">
               {[
                 { src: '/trusted-logo-webp/indian-army-logo-two-swords-and-anchor-y8zzqnzoat79fdj7.webp', alt: 'Indian Army' },
@@ -894,6 +929,9 @@ function App() {
               <p className="leading-relaxed">
                 Room No. A/6, Shripad Smruti, Manpada Road, Dombivali, Star Colony, Dombivli, Thane-421201, Maharashtra, India
               </p>
+              <p className="mt-2">
+                <span className="font-semibold text-cream">GST Number:</span> LAIDO2070267
+              </p>
             </div>
           </div>
           <div>
@@ -913,27 +951,19 @@ function App() {
             </ul>
           </div>
           <div>
-            <div className="text-sm font-semibold">Areas</div>
-            <p className="mt-3 text-sm text-cream/75">Mumbai · Navi Mumbai · Thane · Kalyan · Dombivli · Panvel · Bhiwandi</p>
+            <div className="text-sm font-semibold">Service Areas</div>
+            <p className="mt-3 text-sm text-cream/75 leading-relaxed">
+              Pest Control Service in Mumbai · Pest Control Service in Navi Mumbai · Pest Control Service in Thane · Pest Control Service in Kalyan · Pest Control Service in Dombivli · Pest Control Service in Panvel · Pest Control Service in Bhiwandi
+            </p>
           </div>
         </div>
         <div className="border-t border-white/10">
           <div className="containerX py-4 text-xs text-cream/60 flex flex-col sm:flex-row justify-between items-center gap-2">
             <span>© 2026 Pestyfi Eco Solutions. All rights reserved.</span>
-            <span>Developed with ❤️ by WHLN group</span>
+            <span>Developed with ❤️ by WHNL group</span>
           </div>
         </div>
       </footer>
-
-      {/* Floating CTA */}
-      <a
-        href={CONTACT.waHref}
-        rel="noreferrer"
-        className="fixed bottom-20 right-4 z-50 btnX rounded-full bg-eco px-5 py-3 text-forest shadow-premium md:bottom-6"
-        aria-label="WhatsApp Book Now"
-      >
-        WhatsApp
-      </a>
 
       {/* Auth Modal */}
       <AuthModal
