@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { pb } from '../lib/pocketbase'
 import { SERVICE_RATES } from '../data/content'
 import { APPROVED_PINCODES } from '../data/pincodes'
+import { parseStoredAddress, formatAddress } from './ProfileModal'
 
 export default function BookingWizard({ currentUser, locationInfo }) {
   const [step, setStep] = useState(1)
@@ -35,11 +36,32 @@ export default function BookingWizard({ currentUser, locationInfo }) {
   const [error, setError] = useState('')
   const [successData, setSuccessData] = useState(null)
 
-  // Auto-fill details if user is logged in
+  // Auto-fill details if user is logged in or profile has address
   useEffect(() => {
     if (currentUser) {
       setFullName(currentUser.name || '')
-      // email or other details could go here
+      if (currentUser.phone) {
+        setPhone(currentUser.phone)
+      } else {
+        const savedPhone = localStorage.getItem('pestyfi_profile_phone')
+        if (savedPhone) {
+          setPhone(savedPhone)
+        }
+      }
+    } else {
+      const savedPhone = localStorage.getItem('pestyfi_profile_phone')
+      if (savedPhone) {
+        setPhone(savedPhone)
+      }
+    }
+
+    const addrStr = (currentUser && currentUser.address) || localStorage.getItem('pestyfi_profile_address')
+    if (addrStr) {
+      const parsed = parseStoredAddress(addrStr)
+      const formatted = formatAddress(parsed)
+      if (formatted) {
+        setLocation(formatted)
+      }
     }
   }, [currentUser])
 
@@ -78,8 +100,8 @@ export default function BookingWizard({ currentUser, locationInfo }) {
         setError('Please fill in all contact and area details.')
         return
       }
-      if (!/^\+?[0-9\s-]{8,}$/.test(phone)) {
-        setError('Please enter a valid phone number.')
+      if (!/^\+?[0-9\s-]{8,}$/.test(phone) || phone.replace(/\D/g, '').length < 10) {
+        setError('Please enter a valid phone number with at least 10 digits.')
         return
       }
       const pincodeMatch = location.match(/\b\d{6}\b/)

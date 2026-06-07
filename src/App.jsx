@@ -7,6 +7,8 @@ import { pb } from './lib/pocketbase'
 import AuthModal from './components/AuthModal'
 import BookingWizard from './components/BookingWizard'
 import LocationModal from './components/LocationModal'
+import ScrollRevealText from './components/ScrollRevealText'
+import ProfileModal from './components/ProfileModal'
 import {
   ANNOUNCEMENT,
   NAV_LINKS,
@@ -22,10 +24,14 @@ import {
 function SectionHead({ title, subtitle, light }) {
   return (
     <header className="reveal max-w-2xl">
-      <h2 className={`font-serif text-3xl font-semibold tracking-tight md:text-4xl ${light ? 'text-cream' : 'text-forest'}`}>
-        {title}
+      <h2 className="font-serif text-3xl font-semibold tracking-tight md:text-4xl">
+        <ScrollRevealText text={title} activeClass={light ? 'text-cream' : 'text-forest'} />
       </h2>
-      {subtitle && <p className={`mt-3 text-base leading-relaxed ${light ? 'text-cream/80' : 'text-ink/70'}`}>{subtitle}</p>}
+      {subtitle && (
+        <p className="mt-3 text-base leading-relaxed">
+          <ScrollRevealText text={subtitle} activeClass={light ? 'text-cream/80' : 'text-ink/70'} />
+        </p>
+      )}
     </header>
   )
 }
@@ -48,6 +54,7 @@ function App() {
     return saved ? JSON.parse(saved) : null
   })
   const [isLocationOpen, setIsLocationOpen] = useState(false)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
 
   useEffect(() => {
     if (!locationInfo) {
@@ -167,6 +174,18 @@ function App() {
                         <div className="font-semibold text-cream truncate mt-0.5">{currentUser.email}</div>
                       </div>
                       <button
+                        onClick={() => {
+                          setIsDropdownOpen(false)
+                          setIsProfileOpen(true)
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
+                      >
+                        <svg className="h-4 w-4 text-eco" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        My Profile & Bookings
+                      </button>
+                      <button
                         onClick={handleSignOut}
                         className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
                       >
@@ -241,7 +260,9 @@ function App() {
                 <h1 className="font-serif text-4xl font-semibold leading-[1.08] tracking-tight md:text-5xl lg:text-6xl">
                   {HERO.headline}
                 </h1>
-                <p className="mt-5 text-base leading-relaxed text-cream/85 md:text-lg">{HERO.subheadline}</p>
+                <p className="mt-5 text-base leading-relaxed md:text-lg">
+                  <ScrollRevealText text={HERO.subheadline} activeClass="text-cream" />
+                </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Cta href="#book" className="px-6 py-3 text-base">{HERO.cta1}</Cta>
                   <Cta href={CONTACT.waHref} variant="ghost" className="px-6 py-3 text-base">{HERO.cta2}</Cta>
@@ -307,11 +328,17 @@ function App() {
                 title="In Mumbai, Pest Control Is Not a Reaction. It Is Home Maintenance."
                 subtitle="You do not wait for your AC to stop working before servicing it. You do not wait for your water purifier to fail before changing the filter. So why wait for cockroaches, termites, ants, mosquitoes, or rodents to show up before protecting your home?"
               />
-              <p className="mt-5 text-sm leading-relaxed text-ink/70">
-                Mumbai’s humidity, coastal weather, drainage systems, high-rise apartments, food waste, and monsoon moisture make homes naturally attractive to pests. The problem is simple. By the time you see pests, they may already be hiding, breeding, or spreading inside your home.
+              <p className="mt-5 text-sm leading-relaxed">
+                <ScrollRevealText
+                  text="Mumbai’s humidity, coastal weather, drainage systems, high-rise apartments, food waste, and monsoon moisture make homes naturally attractive to pests. The problem is simple. By the time you see pests, they may already be hiding, breeding, or spreading inside your home."
+                  activeClass="text-ink"
+                />
               </p>
-              <p className="mt-4 text-sm font-medium text-forest">
-                Pestyfi helps you prevent the problem before it becomes visible.
+              <p className="mt-4 text-sm font-medium">
+                <ScrollRevealText
+                  text="Pestyfi helps you prevent the problem before it becomes visible."
+                  activeClass="text-forest"
+                />
               </p>
               <Cta href="#book" className="mt-6">Book Preventive Pest Protection</Cta>
             </div>
@@ -340,8 +367,11 @@ function App() {
           <div className="containerX">
             <div className="reveal">
               <SectionHead title="Protection you can trust, results you can see" subtitle="We don't just remove pests. We remove the stress that comes with them." />
-              <p className="mt-4 max-w-3xl text-sm leading-relaxed text-ink/70">
-                Most pest control services make the process feel complicated — move furniture, empty the kitchen, leave the house, deal with chemical smell. Pestyfi is built for homes that want protection without disruption.
+              <p className="mt-4 max-w-3xl text-sm leading-relaxed">
+                <ScrollRevealText
+                  text="Most pest control services make the process feel complicated — move furniture, empty the kitchen, leave the house, deal with chemical smell. Pestyfi is built for homes that want protection without disruption."
+                  activeClass="text-ink"
+                />
               </p>
             </div>
             <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -382,7 +412,9 @@ function App() {
                   <div>
                     <span className="pillX bg-eco/20 text-eco ring-white/10">Featured Service</span>
                     <h3 className="mt-3 font-serif text-2xl font-semibold">{cockroach.title}</h3>
-                    <p className="mt-3 text-sm leading-relaxed text-cream/85">{cockroach.text}</p>
+                    <p className="mt-3 text-sm leading-relaxed">
+                      <ScrollRevealText text={cockroach.text} activeClass="text-cream" />
+                    </p>
                   </div>
                   <Cta href="#book" className="mt-6 w-fit">Book Cockroach Control</Cta>
                 </div>
@@ -480,9 +512,19 @@ function App() {
           <div className="containerX grid gap-10 md:grid-cols-2 md:items-center">
             <div className="reveal space-y-4">
               <h2 className="font-serif text-3xl font-semibold md:text-4xl">You Don't Notice Pests Until They've Already Made Themselves Comfortable</h2>
-              <div className="space-y-3 text-sm text-cream/80">
-                <p>One cockroach in the kitchen. One termite mark on the furniture. One bed bug bite at night. One rat sound behind the cabinet.</p>
-                <p className="font-medium text-cream">Most pest problems start quietly. By the time they become visible, they may already be spreading, breeding, or damaging your home.</p>
+              <div className="space-y-3 text-sm">
+                <p>
+                  <ScrollRevealText
+                    text="One cockroach in the kitchen. One termite mark on the furniture. One bed bug bite at night. One rat sound behind the cabinet."
+                    activeClass="text-cream"
+                  />
+                </p>
+                <p className="font-medium">
+                  <ScrollRevealText
+                    text="Most pest problems start quietly. By the time they become visible, they may already be spreading, breeding, or damaging your home."
+                    activeClass="text-white"
+                  />
+                </p>
               </div>
               <Cta href="#book" className="mt-8 inline-block">Stop the Infestation Early</Cta>
             </div>
@@ -508,7 +550,12 @@ function App() {
                   </div>
                 ))}
               </div>
-              <p className="reveal text-sm text-ink/70 mt-6">Just book, relax, and let certified hygiene experts handle the problem.</p>
+              <p className="reveal text-sm mt-6">
+                <ScrollRevealText
+                  text="Just book, relax, and let certified hygiene experts handle the problem."
+                  activeClass="text-ink"
+                />
+              </p>
               <Cta href="#book" className="reveal mt-4">Book a Hassle-Free Service</Cta>
             </div>
             <div className="reveal">
@@ -544,8 +591,11 @@ function App() {
                   <li key={item} className="flex gap-2"><span className="text-urgent" aria-hidden="true">•</span>{item}</li>
                 ))}
               </ul>
-              <p className="mt-6 text-sm font-medium text-forest">
-                Pestyfi gives your family a cleaner, safer, more comfortable home. Because hygiene is not a luxury — it is basic home care.
+              <p className="mt-6 text-sm font-medium">
+                <ScrollRevealText
+                  text="Pestyfi gives your family a cleaner, safer, more comfortable home. Because hygiene is not a luxury — it is basic home care."
+                  activeClass="text-forest"
+                />
               </p>
               <Cta href="#book" className="mt-6">Protect My Family Today</Cta>
             </div>
@@ -558,14 +608,23 @@ function App() {
             <div className="grid gap-10 md:grid-cols-2 md:items-center">
               <div className="reveal">
                 <SectionHead title="Built for People Who Want Pest Control Without Panic" />
-                <p className="mt-5 text-sm leading-relaxed text-ink/70">
-                  Pestyfi is a new-age pest control brand launched by Hindustan Pest Control, a pioneer with over 30 years of experience. Pest control should not feel scary, toxic, confusing, or inconvenient.
+                <p className="mt-5 text-sm leading-relaxed">
+                  <ScrollRevealText
+                    text="Pestyfi is a new-age pest control brand launched by Hindustan Pest Control, a pioneer with over 30 years of experience. Pest control should not feel scary, toxic, confusing, or inconvenient."
+                    activeClass="text-ink"
+                  />
                 </p>
-                <p className="mt-4 text-sm leading-relaxed text-ink/70">
-                  We bring together the trust of Hindustan Pest Control with the speed, safety, and convenience today's homes expect. We do not just treat pests — we protect the feeling of comfort inside your home.
+                <p className="mt-4 text-sm leading-relaxed">
+                  <ScrollRevealText
+                    text="We bring together the trust of Hindustan Pest Control with the speed, safety, and convenience today's homes expect. We do not just treat pests — we protect the feeling of comfort inside your home."
+                    activeClass="text-ink"
+                  />
                 </p>
-                <p className="mt-4 text-sm leading-relaxed text-ink/70">
-                  Most families delay pest control because they think it will disturb their home. They worry about chemical smells, children, pets, utensils, furniture, and whether the pests will actually stay away. So we built Pestyfi differently.
+                <p className="mt-4 text-sm leading-relaxed">
+                  <ScrollRevealText
+                    text="Most families delay pest control because they think it will disturb their home. They worry about chemical smells, children, pets, utensils, furniture, and whether the pests will actually stay away. So we built Pestyfi differently."
+                    activeClass="text-ink"
+                  />
                 </p>
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   {[
@@ -831,6 +890,14 @@ function App() {
         isOpen={isLocationOpen}
         onClose={() => setIsLocationOpen(false)}
         onSelect={(loc) => setLocationInfo(loc)}
+      />
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        currentUser={currentUser}
+        onUserUpdate={(updatedUser) => setCurrentUser(updatedUser)}
       />
     </div>
   )
