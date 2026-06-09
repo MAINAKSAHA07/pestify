@@ -101,6 +101,12 @@
       "extraRoom": 700,
       "amcBhk": { "1BHK": 5500, "2BHK": 9000, "3BHK": 12000, "4BHK+": 15000 }
     },
+    "herbal": {
+      "label": "Herbal Pest Control",
+      "bhk": { "1BHK": 2500, "2BHK": 4000, "3BHK": 5500, "4BHK+": 6500 },
+      "extraRoom": 700,
+      "amcBhk": { "1BHK": 5500, "2BHK": 9000, "3BHK": 12000, "4BHK+": 15000 }
+    },
     "mosquito": {
       "label": "Mosquito Treatment (Mosquitoes)",
       "bhk": { "1BHK": 2500, "2BHK": 4000, "3BHK": 5500, "4BHK+": 6500 },
@@ -109,6 +115,18 @@
     },
     "rodent": {
       "label": "Rodent Control Treatment (Rodents)",
+      "bhk": { "1BHK": 2500, "2BHK": 4000, "3BHK": 5500, "4BHK+": 6500 },
+      "extraRoom": 700,
+      "amcBhk": { "1BHK": 5500, "2BHK": 9000, "3BHK": 12000, "4BHK+": 15000 }
+    },
+    "ant": {
+      "label": "Ant Control",
+      "bhk": { "1BHK": 2500, "2BHK": 4000, "3BHK": 5500, "4BHK+": 6500 },
+      "extraRoom": 700,
+      "amcBhk": { "1BHK": 5500, "2BHK": 9000, "3BHK": 12000, "4BHK+": 15000 }
+    },
+    "tick": {
+      "label": "Tick Pest Control",
       "bhk": { "1BHK": 2500, "2BHK": 4000, "3BHK": 5500, "4BHK+": 6500 },
       "extraRoom": 700,
       "amcBhk": { "1BHK": 5500, "2BHK": 9000, "3BHK": 12000, "4BHK+": 15000 }

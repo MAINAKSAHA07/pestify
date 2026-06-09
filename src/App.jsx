@@ -114,8 +114,45 @@ function App() {
     setIsDropdownOpen(false)
   }
 
-  const cockroach = SERVICES.find((s) => s.id === 'cockroach')
-  const otherServices = SERVICES.filter((s) => s.id !== 'cockroach')
+  const [dynamicServices, setDynamicServices] = useState(SERVICES)
+  const [dynamicRates, setDynamicRates] = useState(null)
+
+  useEffect(() => {
+    async function loadDbServices() {
+      try {
+        const records = await pb.collection('services').getFullList({ sort: 'created' })
+        if (records.length > 0) {
+          const loadedServices = records.map(r => ({
+            id: r.key,
+            title: r.title,
+            text: r.text,
+            image: r.image,
+            bestFor: r.bestFor || undefined,
+            includes: r.includes || undefined,
+            plans: r.plans || undefined,
+            amc: r.amc || undefined,
+            steps: r.steps || undefined,
+            benefits: r.benefits || undefined,
+            featured: r.featured || false
+          }))
+          const loadedRates = {}
+          records.forEach(r => {
+            if (r.rates) {
+              loadedRates[r.key] = r.rates
+            }
+          })
+          setDynamicServices(loadedServices)
+          setDynamicRates(loadedRates)
+        }
+      } catch (err) {
+        console.warn('Failed to load services from PocketBase, using static rates:', err.message)
+      }
+    }
+    loadDbServices()
+  }, [])
+
+  const cockroach = dynamicServices.find((s) => s.id === 'cockroach')
+  const otherServices = dynamicServices.filter((s) => s.id !== 'cockroach')
 
   if (currentPath === '/backend') {
     return <BackendDashboard />
@@ -389,7 +426,7 @@ function App() {
             </div>
             <div className="reveal md:col-span-7">
               <div className="bg-forest rounded-2xl shadow-premium border border-white/10 overflow-hidden">
-                <BookingWizard currentUser={currentUser} locationInfo={locationInfo} />
+                <BookingWizard currentUser={currentUser} locationInfo={locationInfo} services={dynamicServices} rates={dynamicRates} />
               </div>
             </div>
           </div>
@@ -938,7 +975,7 @@ function App() {
                 {/* <a href={CONTACT.telHref} className="btnGhost">Talk to Expert</a> */}
               </div>
             </div>
-            <BookingWizard currentUser={currentUser} locationInfo={locationInfo} />
+            <BookingWizard currentUser={currentUser} locationInfo={locationInfo} services={dynamicServices} rates={dynamicRates} />
 
           </div>
         </section>

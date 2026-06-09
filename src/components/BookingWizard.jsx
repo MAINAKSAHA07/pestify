@@ -4,7 +4,10 @@ import { SERVICE_RATES, SERVICES } from '../data/content'
 import { APPROVED_PINCODES } from '../data/pincodes'
 import { parseStoredAddress, formatAddress } from './ProfileModal'
 
-export default function BookingWizard({ currentUser, locationInfo }) {
+export default function BookingWizard({ currentUser, locationInfo, services: customServices, rates: customRates }) {
+  const finalServices = customServices || SERVICES
+  const finalRates = customRates || SERVICE_RATES
+
   const [step, setStep] = useState(1)
   const [duration, setDuration] = useState('one-time')
   const [pest, setPest] = useState('cockroach')
@@ -102,9 +105,9 @@ export default function BookingWizard({ currentUser, locationInfo }) {
     }
   }, [])
 
-  const needsInspection = ['termite', 'bedbug', 'mosquito'].includes(service) || SERVICES.find(s => s.id === service)?.inspectionRequired
+  const needsInspection = ['termite', 'bedbug', 'mosquito'].includes(service) || finalServices.find(s => s.id === service)?.inspectionRequired
 
-  const currentRate = SERVICE_RATES[service]
+  const currentRate = finalRates[service]
 
   const calculatePrice = () => {
     if (duration === 'annual') {
@@ -444,7 +447,7 @@ export default function BookingWizard({ currentUser, locationInfo }) {
               }}
               className="h-11 rounded-xl bg-forest px-3.5 text-sm text-cream ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer"
             >
-              {SERVICES.map((s) => (
+              {finalServices.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.title} {['termite', 'bedbug', 'mosquito'].includes(s.id) || s.inspectionRequired ? ' (Inspection Required)' : ''}
                 </option>

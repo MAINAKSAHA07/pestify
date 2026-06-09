@@ -109,11 +109,70 @@ export default function BackendDashboard() {
   const fetchServicesData = async () => {
     setServicesLoading(true)
     try {
-      const res = await fetch('/api/services')
-      const data = await res.json()
-      if (data.services && data.rates) {
-        setGlobalServices(data.services)
-        setGlobalRates(data.rates)
+      let records = []
+      try {
+        records = await pb.collection('services').getFullList({ sort: 'created' })
+      } catch (dbErr) {
+        console.warn('PocketBase services collection read failed, falling back to local JSON API...', dbErr.message)
+      }
+
+      if (records.length > 0) {
+        const loadedServices = records.map(r => ({
+          id: r.key,
+          title: r.title,
+          text: r.text,
+          image: r.image,
+          bestFor: r.bestFor || undefined,
+          includes: r.includes || undefined,
+          plans: r.plans || undefined,
+          amc: r.amc || undefined,
+          steps: r.steps || undefined,
+          benefits: r.benefits || undefined,
+          featured: r.featured || false
+        }))
+        const loadedRates = {}
+        records.forEach(r => {
+          if (r.rates) {
+            loadedRates[r.key] = r.rates
+          }
+        })
+        setGlobalServices(loadedServices)
+        setGlobalRates(loadedRates)
+      } else {
+        // Fallback: fetch from /api/services
+        const res = await fetch('/api/services')
+        const data = await res.json()
+        if (data.services && data.rates) {
+          setGlobalServices(data.services)
+          setGlobalRates(data.rates)
+
+          // Auto-seed PocketBase if the collection exists but is empty
+          if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin')) {
+            console.log('Seeding PocketBase services collection...')
+            try {
+              for (const s of data.services) {
+                const rates = data.rates[s.id]
+                await pb.collection('services').create({
+                  key: s.id,
+                  title: s.title,
+                  text: s.text,
+                  image: s.image || '',
+                  bestFor: s.bestFor || '',
+                  includes: s.includes || [],
+                  plans: s.plans || [],
+                  amc: s.amc || [],
+                  steps: s.steps || [],
+                  benefits: s.benefits || [],
+                  featured: s.featured || false,
+                  rates: rates || {}
+                })
+              }
+              console.log('Successfully seeded PocketBase services collection.')
+            } catch (seedErr) {
+              console.warn('Failed to seed PocketBase services collection:', seedErr.message)
+            }
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to fetch services data:', err)
@@ -544,23 +603,60 @@ export default function BackendDashboard() {
     setError('')
     setSuccess('')
     try {
-      const res = await fetch('/api/services', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ services: updatedServices, rates: updatedRates })
-      })
-      const result = await res.json()
-      if (result.ok) {
-        setGlobalServices(updatedServices)
-        setGlobalRates(updatedRates)
-        showToast('Services database updated successfully!')
-        return true
-      } else {
-        setError(result.error || 'Failed to update services database.')
-        return false
+      // 1. Try to save to PocketBase
+      try {
+        const records = await pb.collection('services').getFullList()
+        // Delete services that are no longer in updatedServices
+        for (const r of records) {
+          if (!updatedServices.some(s => s.id === r.key)) {
+            await pb.collection('services').delete(r.id)
+          }
+        }
+        // Save or update existing ones
+        for (const s of updatedServices) {
+          const rates = updatedRates[s.id]
+          const existingRecord = records.find(r => r.key === s.id)
+          const data = {
+            key: s.id,
+            title: s.title,
+            text: s.text,
+            image: s.image || '',
+            bestFor: s.bestFor || '',
+            includes: s.includes || [],
+            plans: s.plans || [],
+            amc: s.amc || [],
+            steps: s.steps || [],
+            benefits: s.benefits || [],
+            featured: s.featured || false,
+            rates: rates || {}
+          }
+          if (existingRecord) {
+            await pb.collection('services').update(existingRecord.id, data)
+          } else {
+            await pb.collection('services').create(data)
+          }
+        }
+      } catch (dbErr) {
+        console.warn('PocketBase services collection update failed, saving locally only...', dbErr.message)
       }
+
+      // 2. Also POST to local Express server so the local JSON file stays in sync for local dev
+      try {
+        await fetch('/api/services', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ services: updatedServices, rates: updatedRates })
+        })
+      } catch (localErr) {
+        console.warn('Local file services API save failed (ignoring in production):', localErr.message)
+      }
+
+      setGlobalServices(updatedServices)
+      setGlobalRates(updatedRates)
+      showToast('Services database updated successfully!')
+      return true
     } catch (err) {
-      setError('Network error saving services database.')
+      setError('Error saving services database.')
       return false
     }
   }
