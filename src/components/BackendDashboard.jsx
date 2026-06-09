@@ -38,6 +38,12 @@ export default function BackendDashboard() {
   const [editName, setEditName] = useState('')
   const [editPhone, setEditPhone] = useState('')
   const [editLocation, setEditLocation] = useState('')
+  const [editServices, setEditServices] = useState([])
+  const [editBhkSize, setEditBhkSize] = useState('1BHK')
+  const [editExtraRooms, setEditExtraRooms] = useState(0)
+  const [editPrice, setEditPrice] = useState(0)
+  const [editPaymentMethod, setEditPaymentMethod] = useState('razorpay')
+  const [editStatus, setEditStatus] = useState('pending')
 
   // Active Panel Tab: 'bookings' or 'users'
   const [activeTab, setActiveTab] = useState('bookings')
@@ -61,7 +67,7 @@ export default function BackendDashboard() {
   const [manualArea, setManualArea] = useState('')
   const [manualCity, setManualCity] = useState('')
   const [manualPincode, setManualPincode] = useState('')
-  const [manualService, setManualService] = useState('cockroach')
+  const [manualServices, setManualServices] = useState(['cockroach'])
   const [manualBhkSize, setManualBhkSize] = useState('1BHK')
   const [manualExtraRooms, setManualExtraRooms] = useState(0)
   const [manualPrice, setManualPrice] = useState(0)
@@ -171,6 +177,23 @@ export default function BackendDashboard() {
     setEditName(booking.fullName || '')
     setEditPhone(booking.phone || '')
     setEditLocation(booking.location || '')
+    setEditBhkSize(booking.bhkSize || '1BHK')
+    setEditExtraRooms(booking.extraRooms || 0)
+    setEditPrice(booking.price || 0)
+    setEditPaymentMethod(booking.paymentMethod || 'razorpay')
+    setEditStatus(booking.status || 'pending')
+    
+    // Parse selected services from booking.service
+    const servicesList = booking.service ? booking.service.split(',').map(s => s.trim().toLowerCase()) : []
+    const activeKeys = []
+    if (servicesList.some(s => s.includes('cockroach') || s.includes('gel'))) activeKeys.push('cockroach')
+    if (servicesList.some(s => s.includes('termite'))) activeKeys.push('termite')
+    if (servicesList.some(s => s.includes('bedbug') || s.includes('bed bug') || s.includes('bedbug'))) activeKeys.push('bedbug')
+    if (servicesList.some(s => s.includes('mosquito'))) activeKeys.push('mosquito')
+    if (servicesList.some(s => s.includes('disinfection') || s.includes('general') || s.includes('crawling'))) activeKeys.push('general')
+    if (servicesList.some(s => s.includes('all-in-one') || s.includes('all pests') || s.includes('all-pests') || s.includes('protection (all'))) activeKeys.push('all')
+    
+    setEditServices(activeKeys.length > 0 ? activeKeys : ['cockroach'])
   }
 
   // Save edited booking details
@@ -180,11 +203,33 @@ export default function BackendDashboard() {
     setError('')
     setSuccess('')
 
+    if (editServices.length === 0) {
+      setError('Please select at least one service.')
+      return
+    }
+
     try {
+      // Reconstruct the service label(s) from editServices
+      const labels = editServices.map(key => {
+        if (key === 'cockroach') return 'Advance Golden Gel (Cockroaches)'
+        if (key === 'termite') return 'Anti Termite Treatment (Termites)'
+        if (key === 'bedbug') return 'BedBug Treatment (Bedbugs)'
+        if (key === 'general') return 'General Disinfection (Crawling Insects)'
+        if (key === 'mosquito') return 'Mosquito Treatment (Mosquitoes)'
+        if (key === 'all') return 'All-in-One Protection (All Pests)'
+        return key
+      }).join(', ')
+
       const updated = await pb.collection('bookings').update(editingBooking.id, {
         fullName: editName,
         phone: editPhone,
         location: editLocation,
+        service: labels,
+        bhkSize: editBhkSize,
+        extraRooms: Number(editExtraRooms) || 0,
+        price: Number(editPrice) || 0,
+        paymentMethod: editPaymentMethod,
+        status: editStatus,
       })
       setBookings(prev => prev.map(b => b.id === editingBooking.id ? updated : b))
       setEditingBooking(null)
@@ -365,6 +410,11 @@ export default function BackendDashboard() {
       return
     }
 
+    if (manualServices.length === 0) {
+      setError('Please select at least one service.')
+      return
+    }
+
     setManualBookingLoading(true)
 
     const addressData = {
@@ -378,11 +428,22 @@ export default function BackendDashboard() {
     const serializedAddress = JSON.stringify(addressData)
 
     try {
+      // Reconstruct the service label(s) from manualServices
+      const labels = manualServices.map(key => {
+        if (key === 'cockroach') return 'Advance Golden Gel (Cockroaches)'
+        if (key === 'termite') return 'Anti Termite Treatment (Termites)'
+        if (key === 'bedbug') return 'BedBug Treatment (Bedbugs)'
+        if (key === 'general') return 'General Disinfection (Crawling Insects)'
+        if (key === 'mosquito') return 'Mosquito Treatment (Mosquitoes)'
+        if (key === 'all') return 'All-in-One Protection (All Pests)'
+        return key
+      }).join(', ')
+
       const data = {
         fullName: manualName.trim(),
         phone: manualPhone.trim(),
         location: serializedAddress,
-        service: manualService,
+        service: labels,
         bhkSize: manualBhkSize,
         extraRooms: Number(manualExtraRooms) || 0,
         price: Number(manualPrice) || 0,
@@ -405,7 +466,7 @@ export default function BackendDashboard() {
       setManualArea('')
       setManualCity('')
       setManualPincode('')
-      setManualService('cockroach')
+      setManualServices(['cockroach'])
       setManualBhkSize('1BHK')
       setManualExtraRooms(0)
       setManualPrice(0)
@@ -413,7 +474,7 @@ export default function BackendDashboard() {
       setManualStatus('pending')
     } catch (err) {
       console.error('Failed to create manual booking:', err)
-      setError(err?.message || 'Failed to create offline booking record.')
+      setError(err?.message || 'Failed to create manual booking.')
     } finally {
       setManualBookingLoading(false)
     }
@@ -1080,9 +1141,9 @@ export default function BackendDashboard() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-forest/80 backdrop-blur-sm" onClick={() => setEditingBooking(null)} />
           
-          <form onSubmit={saveBookingEdits} className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-premium ring-1 ring-black/5 flex flex-col animate-in fade-in zoom-in-95 duration-150">
+          <form onSubmit={saveBookingEdits} className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-premium ring-1 ring-black/5 flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
             <div className="h-1.5 w-full bg-forest shrink-0" />
-            <div className="p-6 sm:p-8 space-y-4">
+            <div className="p-6 sm:p-8 space-y-4 overflow-y-auto">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-serif text-lg font-bold text-forest">Edit Booking #{editingBooking.id}</h3>
                 <button type="button" onClick={() => setEditingBooking(null)} className="rounded-lg p-1.5 text-ink/40 hover:bg-black/5">
@@ -1092,39 +1153,148 @@ export default function BackendDashboard() {
                 </button>
               </div>
 
-              <label className="grid gap-1 text-xs font-semibold text-forest">
-                <span>Customer Name</span>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
-                />
-              </label>
+              {/* Name & Phone */}
+              <div className="grid grid-cols-2 gap-4">
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-2 sm:col-span-1">
+                  <span>Customer Name</span>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                  />
+                </label>
 
-              <label className="grid gap-1 text-xs font-semibold text-forest">
-                <span>Customer Contact Phone</span>
-                <input
-                  type="tel"
-                  required
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
-                />
-              </label>
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-2 sm:col-span-1">
+                  <span>Customer Contact Phone</span>
+                  <input
+                    type="tel"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                  />
+                </label>
+              </div>
 
               <label className="grid gap-1 text-xs font-semibold text-forest">
                 <span>Service Visit Location Address</span>
                 <textarea
                   required
-                  rows="3"
+                  rows="2"
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
-                  className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink resize-none"
+                  className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink resize-none text-xs"
                 />
               </label>
 
+              {/* Services selection grid */}
+              <div className="grid gap-1.5 text-xs font-semibold text-forest">
+                <span>Services Included (Add / Subtract)</span>
+                <div className="grid grid-cols-2 gap-2 bg-cream/25 border border-black/10 rounded-lg p-3">
+                  {[
+                    { key: 'cockroach', label: 'Cockroach Control' },
+                    { key: 'termite', label: 'Termite Control' },
+                    { key: 'bedbug', label: 'Bed Bug Control' },
+                    { key: 'mosquito', label: 'Mosquito Control' },
+                    { key: 'general', label: 'General Pest Control' },
+                    { key: 'all', label: 'All-in-One Protection' },
+                  ].map((s) => {
+                    const checked = editServices.includes(s.key)
+                    return (
+                      <label key={s.key} className="flex items-center gap-2 font-medium cursor-pointer text-forest">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditServices([...editServices, s.key])
+                            } else {
+                              setEditServices(editServices.filter(k => k !== s.key))
+                            }
+                          }}
+                          className="rounded text-forest focus:ring-forest h-4 w-4"
+                        />
+                        <span>{s.label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* BHK, Extra Rooms, Price, Status */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                  <span>BHK Size</span>
+                  <select
+                    value={editBhkSize}
+                    onChange={(e) => setEditBhkSize(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
+                  >
+                    <option value="1BHK">1 BHK</option>
+                    <option value="2BHK">2 BHK</option>
+                    <option value="3BHK">3 BHK</option>
+                    <option value="4BHK+">4 BHK+</option>
+                  </select>
+                </label>
+
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                  <span>Extra Rooms</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editExtraRooms}
+                    onChange={(e) => setEditExtraRooms(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                  <span>Price (₹)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                  <span>Status</span>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </label>
+              </div>
+
+              {/* Payment Method */}
+              <label className="grid gap-1 text-xs font-semibold text-forest">
+                <span>Payment Method</span>
+                <select
+                  value={editPaymentMethod}
+                  onChange={(e) => setEditPaymentMethod(e.target.value)}
+                  className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
+                >
+                  <option value="razorpay">Razorpay</option>
+                  <option value="cash">Cash</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="check">Cheque</option>
+                  <option value="card">Card Payment</option>
+                  <option value="home_inspection">Home Inspection</option>
+                </select>
+              </label>
+
+              {/* Buttons */}
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -1191,20 +1361,38 @@ export default function BackendDashboard() {
 
               {/* Service & Pricing Details */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <label className="grid gap-1 text-xs font-semibold text-forest col-span-2">
-                  <span>Service Type</span>
-                  <select
-                    value={manualService}
-                    onChange={(e) => setManualService(e.target.value)}
-                    className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
-                  >
-                    <option value="cockroach">Cockroach Control</option>
-                    <option value="termite">Termite Control</option>
-                    <option value="bedbug">Bed Bug Control</option>
-                    <option value="mosquito">Mosquito Control</option>
-                    <option value="general">General Pest Control</option>
-                  </select>
-                </label>
+                <div className="grid gap-1.5 text-xs font-semibold text-forest col-span-2">
+                  <span>Services Included (Add / Subtract)</span>
+                  <div className="grid grid-cols-2 gap-2 bg-cream/10 border border-black/10 rounded-lg p-3">
+                    {[
+                      { key: 'cockroach', label: 'Cockroach Control' },
+                      { key: 'termite', label: 'Termite Control' },
+                      { key: 'bedbug', label: 'Bed Bug Control' },
+                      { key: 'mosquito', label: 'Mosquito Control' },
+                      { key: 'general', label: 'General Pest Control' },
+                      { key: 'all', label: 'All-in-One Protection' },
+                    ].map((s) => {
+                      const checked = manualServices.includes(s.key)
+                      return (
+                        <label key={s.key} className="flex items-center gap-2 font-medium cursor-pointer text-forest">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setManualServices([...manualServices, s.key])
+                              } else {
+                                setManualServices(manualServices.filter(k => k !== s.key))
+                              }
+                            }}
+                            className="rounded text-forest focus:ring-forest h-4 w-4"
+                          />
+                          <span>{s.label}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
 
                 <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
                   <span>BHK Size</span>

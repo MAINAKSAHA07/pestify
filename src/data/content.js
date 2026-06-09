@@ -154,8 +154,13 @@ export const SERVICE_RATES = {
   },
   mosquito: {
     label: 'Mosquito Treatment (Mosquitoes)',
-    bhk: { '1BHK': 3000, '2BHK': 4000, '3BHK': 5000, '4BHK+': 6500 },
+    bhk: { '1BHK': 3000, '2BHK': 4000, '3BHK': 5500, '4BHK+': 6500 },
     extraRoom: 500
+  },
+  all: {
+    label: 'All-in-One Protection (All Pests)',
+    bhk: { '1BHK': 8000, '2BHK': 8000, '3BHK': 8000, '4BHK+': 8000 },
+    extraRoom: 0
   }
 }
 

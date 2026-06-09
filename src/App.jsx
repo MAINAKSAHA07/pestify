@@ -46,6 +46,26 @@ function Cta({ children, href = '#book', variant = 'primary', className = '' }) 
   )
 }
 
+const CREDENTIAL_LOGOS = [
+  { src: '/trusted-logo-webp/indian-army-logo-two-swords-and-anchor-y8zzqnzoat79fdj7.webp', alt: 'Indian Army' },
+  { src: '/trusted-logo-webp/70-708897_india-post-logo.webp', alt: 'India Post' },
+  { src: '/trusted-logo-webp/peso-approval.webp', alt: 'PESO Approved' },
+  { src: '/trusted-logo-webp/logos for pestyfi.webp', alt: 'Pestyfi Logos' },
+  { src: '/trusted-logo-webp/IMG_7008.webp', alt: 'ISO Certified' },
+  { src: '/trusted-logo-webp/IMG_7009.webp', alt: 'Government Certified' },
+  { src: '/trusted-logo-webp/IMG_7010.webp', alt: 'Safety Approved' },
+  { src: '/trusted-logo-webp/IMG_7015.webp', alt: 'HACCP Certified' },
+  { src: '/trusted-logo-webp/IMG_7016.webp', alt: 'WHO Compliant' },
+  { src: '/trusted-logo-webp/IMG_7017.webp', alt: 'Make In India' },
+  { src: '/trusted-logo-webp/IMG_7018.webp', alt: 'Startup India' },
+  { src: '/trusted-logo-webp/IMG_7019.webp', alt: 'MSME Registered' },
+  { src: '/trusted-logo-webp/IMG_7020.webp', alt: 'Eco Friendly Certificate' },
+  { src: '/trusted-logo-webp/IMG_7021.webp', alt: 'Organic Pest Association' },
+  { src: '/trusted-logo-webp/IMG_7022.webp', alt: 'Chemical Safety Association' },
+  { src: '/trusted-logo-webp/IMG_7023.webp', alt: 'NPOP Organic India' },
+  { src: '/trusted-logo-webp/IMG_7024.webp', alt: 'Swachh Bharat partner' }
+]
+
 function App() {
   const [currentUser, setCurrentUser] = useState(pb.authStore.model)
   const [isAuthOpen, setIsAuthOpen] = useState(false)
@@ -294,6 +314,9 @@ function App() {
           <div className="containerX relative py-16 md:py-24">
             <div className="grid md:grid-cols-12 gap-10 items-center">
               <div className="reveal md:col-span-7 max-w-xl">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-amber ring-1 ring-white/15 mb-4">
+                  🛡️ Govt. Lic No: LAIDO2070267
+                </div>
                 <h1 className="font-serif text-4xl font-semibold leading-[1.08] tracking-tight md:text-5xl lg:text-6xl">
                   {HERO.headline}
                 </h1>
@@ -336,56 +359,62 @@ function App() {
           </div>
         </section>
 
+        {/* 3.5 Top Booking Wizard */}
+        <section className="bg-cream py-16 border-b border-black/5">
+          <div className="containerX grid gap-10 md:grid-cols-12 items-start">
+            <div className="reveal md:col-span-5 space-y-4">
+              <span className="pillX bg-forest/10 text-forest border-forest/20 uppercase tracking-wider text-[11px] font-bold">
+                Fast Booking
+              </span>
+              <h2 className="font-serif text-3xl font-semibold text-forest leading-tight md:text-4xl">
+                Book Your Pest Protection Today
+              </h2>
+              <p className="text-sm leading-relaxed text-ink/75">
+                Get 20% OFF on prepaid bookings + free Pestyfi Home Protection Kit worth ₹1,499. Serving Mumbai, Navi Mumbai & Thane.
+              </p>
+              <div className="flex flex-col gap-2 pt-2 text-xs font-semibold text-forest">
+                <div className="flex items-center gap-2">
+                  <span className="text-eco text-sm">✓</span> 20% Off on Prepaid Bookings
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-eco text-sm">✓</span> 100% Odourless & Safe Treatments
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-eco text-sm">✓</span> Certified Hygiene Experts
+                </div>
+              </div>
+              <div className="pt-2 flex flex-wrap gap-3">
+                <Cta href={CONTACT.waHref}>Talk to Expert</Cta>
+              </div>
+            </div>
+            <div className="reveal md:col-span-7">
+              <div className="bg-forest rounded-2xl shadow-premium border border-white/10 overflow-hidden">
+                <BookingWizard currentUser={currentUser} locationInfo={locationInfo} />
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* 4. Trusted By */}
-        <section className="border-y border-black/5 bg-white py-10">
-          <div className="containerX reveal mb-6 text-center">
+        <section className="border-y border-black/5 bg-white py-12">
+          <div className="containerX mb-8 text-center">
             <h2 className="font-serif text-2xl font-semibold text-forest md:text-3xl">
               Trusted By Families, Businesses And Institutions Across Mumbai
             </h2>
           </div>
           <div className="logoMarquee overflow-hidden">
-            <div className="logoTrack flex gap-8">
-              {[...TRUSTED_LOGOS, ...TRUSTED_LOGOS].map((name, i) => (
-                <span
-                  key={`${name}-${i}`}
-                  className="inline-flex shrink-0 items-center rounded-xl bg-cream px-5 py-3 text-sm font-semibold text-forest/70 ring-1 ring-black/5"
-                >
-                  {name}
-                </span>
+            <div className="logoTrack flex items-center gap-12">
+              {[...CREDENTIAL_LOGOS, ...CREDENTIAL_LOGOS].map((badge, idx) => (
+                <div key={idx} className="h-10 md:h-12 flex items-center justify-center shrink-0">
+                  <img
+                    src={badge.src}
+                    alt={badge.alt}
+                    className="h-full w-auto object-contain max-w-[120px]"
+                    loading="lazy"
+                  />
+                </div>
               ))}
             </div>
-          </div>
-
-          {/* Government & MSME Credentials */}
-          <div className="reveal mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 px-4 py-6 border-t border-black/5 bg-cream/10">
-            {[
-              { src: '/trusted-logo-webp/indian-army-logo-two-swords-and-anchor-y8zzqnzoat79fdj7.webp', alt: 'Indian Army' },
-              { src: '/trusted-logo-webp/70-708897_india-post-logo.webp', alt: 'India Post' },
-              { src: '/trusted-logo-webp/peso-approval.webp', alt: 'PESO Approved' },
-              { src: '/trusted-logo-webp/logos for pestyfi.webp', alt: 'Pestyfi Logos' },
-              { src: '/trusted-logo-webp/IMG_7008.webp', alt: 'ISO Certified' },
-              { src: '/trusted-logo-webp/IMG_7009.webp', alt: 'Government Certified' },
-              { src: '/trusted-logo-webp/IMG_7010.webp', alt: 'Safety Approved' },
-              { src: '/trusted-logo-webp/IMG_7015.webp', alt: 'HACCP Certified' },
-              { src: '/trusted-logo-webp/IMG_7016.webp', alt: 'WHO Compliant' },
-              { src: '/trusted-logo-webp/IMG_7017.webp', alt: 'Make In India' },
-              { src: '/trusted-logo-webp/IMG_7018.webp', alt: 'Startup India' },
-              { src: '/trusted-logo-webp/IMG_7019.webp', alt: 'MSME Registered' },
-              { src: '/trusted-logo-webp/IMG_7020.webp', alt: 'Eco Friendly Certificate' },
-              { src: '/trusted-logo-webp/IMG_7021.webp', alt: 'Organic Pest Association' },
-              { src: '/trusted-logo-webp/IMG_7022.webp', alt: 'Chemical Safety Association' },
-              { src: '/trusted-logo-webp/IMG_7023.webp', alt: 'NPOP Organic India' },
-              { src: '/trusted-logo-webp/IMG_7024.webp', alt: 'Swachh Bharat partner' }
-            ].map((badge, idx) => (
-              <div key={idx} className="h-8 md:h-10 flex items-center justify-center grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300">
-                <img
-                  src={badge.src}
-                  alt={badge.alt}
-                  className="h-full w-auto object-contain max-w-[100px]"
-                  loading="lazy"
-                />
-              </div>
-            ))}
           </div>
         </section>
 
@@ -789,7 +818,6 @@ function App() {
         {/* 13. Tree Planting */}
         <section className="bg-green py-14 text-cream">
           <div className="containerX reveal flex flex-col items-center gap-4 text-center md:flex-row md:text-left">
-            <div className="grid h-16 w-16 place-items-center rounded-2xl bg-eco/20 text-3xl" aria-hidden="true">🌳</div>
             <div>
               <h2 className="font-serif text-2xl font-semibold md:text-3xl">We protect your home, family and the planet</h2>
               <p className="mt-2 text-sm text-cream/85">Every home protected by Pestyfi also leads us to plant a tree.</p>
@@ -930,7 +958,10 @@ function App() {
                 Room No. A/6, Shripad Smruti, Manpada Road, Dombivali, Star Colony, Dombivli, Thane-421201, Maharashtra, India
               </p>
               <p className="mt-2">
-                <span className="font-semibold text-cream">GST Number:</span> LAIDO2070267
+                <span className="font-semibold text-cream">GST Number:</span> 27AAOCP8447K1ZL
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold text-cream">Lic Number:</span> LAIDO2070267
               </p>
             </div>
           </div>
