@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { pb } from '../lib/pocketbase'
-import { SERVICE_RATES } from '../data/content'
+import { SERVICE_RATES, SERVICES } from '../data/content'
 import { APPROVED_PINCODES } from '../data/pincodes'
 import { parseStoredAddress, formatAddress } from './ProfileModal'
 
@@ -102,13 +102,14 @@ export default function BookingWizard({ currentUser, locationInfo }) {
     }
   }, [])
 
-  const needsInspection = ['termite', 'bedbug', 'mosquito'].includes(service)
+  const needsInspection = ['termite', 'bedbug', 'mosquito'].includes(service) || SERVICES.find(s => s.id === service)?.inspectionRequired
 
   const currentRate = SERVICE_RATES[service]
 
   const calculatePrice = () => {
-    if (service === 'all') {
-      return { base: 8000, extraRoomCost: 0, subtotal: 8000, discount: 0, total: 8000 }
+    if (duration === 'annual') {
+      const amcBase = currentRate?.amcBhk?.[bhkSize] || currentRate?.bhk?.[bhkSize] || 8000
+      return { base: amcBase, extraRoomCost: 0, subtotal: amcBase, discount: 0, total: amcBase }
     }
     const base = currentRate?.bhk?.[bhkSize] || 0
     const extraRoomCost = extraRooms * (currentRate?.extraRoom || 0)
@@ -443,12 +444,11 @@ export default function BookingWizard({ currentUser, locationInfo }) {
               }}
               className="h-11 rounded-xl bg-forest px-3.5 text-sm text-cream ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer"
             >
-              <option value="cockroach">Cockroaches</option>
-              <option value="termite">Termites (Inspection Required)</option>
-              <option value="bedbug">Bed Bugs (Inspection Required)</option>
-              <option value="general">Ants, Spiders, or Crawling Insects</option>
-              <option value="mosquito">Mosquitoes (Inspection Required)</option>
-              <option value="all">All Pests (Complete Home Protection Package)</option>
+              {SERVICES.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title} {['termite', 'bedbug', 'mosquito'].includes(s.id) || s.inspectionRequired ? ' (Inspection Required)' : ''}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -476,58 +476,58 @@ export default function BookingWizard({ currentUser, locationInfo }) {
               </span>
               <p>
                 {duration === 'annual'
-                  ? 'Annual services feature comprehensive coverage for your home for a flat rate of ₹8,000, with no additional BHK or extra room fees.'
-                  : 'This comprehensive package covers cockroaches, ants, termites, bed bugs, and mosquitoes for a flat rate of ₹8,000.'}
+                  ? `Annual services feature comprehensive coverage for your home for a rate of ₹${total.toLocaleString('en-IN')}, with no additional extra room fees.`
+                  : `This comprehensive package covers cockroaches, ants, termites, bed bugs, and mosquitoes for a rate of ₹${total.toLocaleString('en-IN')}.`}
               </p>
             </div>
-          ) : (
-            <>
-              <div>
-                <span className="text-sm font-semibold text-cream block mb-2">BHK Size</span>
-                <div className="grid grid-cols-4 gap-2">
-                  {['1BHK', '2BHK', '3BHK', '4BHK+'].map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => setBhkSize(size)}
-                      className={`py-2 rounded-xl text-xs font-bold transition-all border ${
-                        bhkSize === size
-                          ? 'bg-amber text-forest border-amber shadow-md'
-                          : 'bg-white/5 text-cream/80 border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          ) : null}
 
-              <div className="flex items-center justify-between bg-forest/30 border border-white/5 rounded-xl p-3">
-                <div>
-                  <span className="text-xs font-bold text-cream">Extra Rooms</span>
-                  <p className="text-[10px] text-cream/60">
-                    +₹{currentRate?.extraRoom?.toLocaleString('en-IN')} per room
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setExtraRooms(Math.max(0, extraRooms - 1))}
-                    className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center font-bold text-cream hover:bg-white/15 transition-colors"
-                  >
-                    -
-                  </button>
-                  <span className="text-sm font-bold text-cream min-w-[12px] text-center">{extraRooms}</span>
-                  <button
-                    type="button"
-                    onClick={() => setExtraRooms(Math.min(10, extraRooms + 1))}
-                    className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center font-bold text-cream hover:bg-white/15 transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
+          <div>
+            <span className="text-sm font-semibold text-cream block mb-2">BHK Size</span>
+            <div className="grid grid-cols-4 gap-2">
+              {['1BHK', '2BHK', '3BHK', '4BHK+'].map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setBhkSize(size)}
+                  className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                    bhkSize === size
+                      ? 'bg-amber text-forest border-amber shadow-md'
+                      : 'bg-white/5 text-cream/80 border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {duration !== 'annual' && service !== 'all' && (
+            <div className="flex items-center justify-between bg-forest/30 border border-white/5 rounded-xl p-3">
+              <div>
+                <span className="text-xs font-bold text-cream">Extra Rooms</span>
+                <p className="text-[10px] text-cream/60">
+                  +₹{currentRate?.extraRoom?.toLocaleString('en-IN')} per room
+                </p>
               </div>
-            </>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setExtraRooms(Math.max(0, extraRooms - 1))}
+                  className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center font-bold text-cream hover:bg-white/15 transition-colors"
+                >
+                  -
+                </button>
+                <span className="text-sm font-bold text-cream min-w-[12px] text-center">{extraRooms}</span>
+                <button
+                  type="button"
+                  onClick={() => setExtraRooms(Math.min(10, extraRooms + 1))}
+                  className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center font-bold text-cream hover:bg-white/15 transition-colors"
+                >
+                  +
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Dynamic Summary Panel */}
@@ -536,11 +536,11 @@ export default function BookingWizard({ currentUser, locationInfo }) {
               <>
                 <div className="flex justify-between font-bold text-sm text-cream">
                   <span>Package Rate ({duration === 'annual' ? 'Annual' : 'One-Time'}):</span>
-                  <span>₹8,000</span>
+                  <span>₹{total.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="border-t border-white/10 pt-2 flex justify-between font-bold text-base text-amber">
                   <span>Estimated Price:</span>
-                  <span>₹8,000</span>
+                  <span>₹{total.toLocaleString('en-IN')}</span>
                 </div>
               </>
             ) : (

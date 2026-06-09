@@ -325,7 +325,7 @@ function App() {
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Cta href="#book" className="px-6 py-3 text-base">{HERO.cta1}</Cta>
-                  <Cta href={CONTACT.waHref} variant="ghost" className="px-6 py-3 text-base">{HERO.cta2}</Cta>
+                  {/* <Cta href={CONTACT.waHref} variant="ghost" className="px-6 py-3 text-base">{HERO.cta2}</Cta> */}
                 </div>
               </div>
               <div className="reveal hidden md:block md:col-span-5">
@@ -383,9 +383,9 @@ function App() {
                   <span className="text-eco text-sm">✓</span> Certified Hygiene Experts
                 </div>
               </div>
-              <div className="pt-2 flex flex-wrap gap-3">
+              {/* <div className="pt-2 flex flex-wrap gap-3">
                 <Cta href={CONTACT.waHref}>Talk to Expert</Cta>
-              </div>
+              </div> */}
             </div>
             <div className="reveal md:col-span-7">
               <div className="bg-forest rounded-2xl shadow-premium border border-white/10 overflow-hidden">
@@ -842,9 +842,9 @@ function App() {
                 </details>
               ))}
             </div>
-            <div className="reveal mt-8 text-center">
+            {/* <div className="reveal mt-8 text-center">
               <Cta href={CONTACT.waHref} variant="light">Still Have Questions? Talk to an Expert</Cta>
-            </div>
+            </div> */}
           </div>
         </section>
 
@@ -935,7 +935,7 @@ function App() {
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Cta href={CONTACT.waHref}>Book Now & Get 20% OFF</Cta>
-                <a href={CONTACT.telHref} className="btnGhost">Talk to Expert</a>
+                {/* <a href={CONTACT.telHref} className="btnGhost">Talk to Expert</a> */}
               </div>
             </div>
             <BookingWizard currentUser={currentUser} locationInfo={locationInfo} />

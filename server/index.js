@@ -2,8 +2,15 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import crypto from 'crypto'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { authenticateWithPhone } from './pocketbaseAuth.js'
 import { formatDisplayPhone, normalizePhone, sendLoginOtp } from './whatsapp.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const SERVICES_FILE_PATH = path.join(__dirname, '../src/data/services_custom.json')
 
 const app = express()
 const PORT = process.env.WHATSAPP_SERVER_PORT || 3001
@@ -34,6 +41,36 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     whatsapp: Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID),
   })
+})
+
+/** Get global services & rates database */
+app.get('/api/services', (req, res) => {
+  try {
+    if (fs.existsSync(SERVICES_FILE_PATH)) {
+      const data = fs.readFileSync(SERVICES_FILE_PATH, 'utf8')
+      return res.json(JSON.parse(data))
+    } else {
+      return res.status(404).json({ error: 'Services file not found' })
+    }
+  } catch (err) {
+    console.error('[GET /api/services]', err.message)
+    res.status(500).json({ error: 'Failed to read services database' })
+  }
+})
+
+/** Save global services & rates database */
+app.post('/api/services', (req, res) => {
+  try {
+    const { services, rates } = req.body
+    if (!services || !rates) {
+      return res.status(400).json({ error: 'Services and rates are required' })
+    }
+    fs.writeFileSync(SERVICES_FILE_PATH, JSON.stringify({ services, rates }, null, 2), 'utf8')
+    res.json({ ok: true, message: 'Services updated successfully' })
+  } catch (err) {
+    console.error('[POST /api/services]', err.message)
+    res.status(500).json({ error: 'Failed to save services database' })
+  }
 })
 
 /** Send OTP to phone via WhatsApp */

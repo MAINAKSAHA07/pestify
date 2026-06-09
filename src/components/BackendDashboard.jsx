@@ -74,6 +74,60 @@ export default function BackendDashboard() {
   const [manualPaymentMethod, setManualPaymentMethod] = useState('cash')
   const [manualStatus, setManualStatus] = useState('pending')
 
+  // Dynamic Services & Rates states
+  const [globalServices, setGlobalServices] = useState([])
+  const [globalRates, setGlobalRates] = useState({})
+  const [servicesLoading, setServicesLoading] = useState(false)
+  
+  // Forms states for service creation & editing
+  const [editingService, setEditingService] = useState(null)
+  const [isNewServiceOpen, setIsNewServiceOpen] = useState(false)
+  
+  // Service form fields
+  const [svcId, setSvcId] = useState('')
+  const [svcTitle, setSvcTitle] = useState('')
+  const [svcText, setSvcText] = useState('')
+  const [svcImage, setSvcImage] = useState('')
+  const [svcBestFor, setSvcBestFor] = useState('')
+  const [svcIncludes, setSvcIncludes] = useState('')
+  const [svcPlans, setSvcPlans] = useState('')
+  const [svcBenefits, setSvcBenefits] = useState('')
+  
+  // Rate form fields
+  const [rateLabel, setRateLabel] = useState('')
+  const [rate1Bhk, setRate1Bhk] = useState(0)
+  const [rate2Bhk, setRate2Bhk] = useState(0)
+  const [rate3Bhk, setRate3Bhk] = useState(0)
+  const [rate4Bhk, setRate4Bhk] = useState(0)
+  const [rateExtraRoom, setRateExtraRoom] = useState(0)
+  const [rateAmc1Bhk, setRateAmc1Bhk] = useState(0)
+  const [rateAmc2Bhk, setRateAmc2Bhk] = useState(0)
+  const [rateAmc3Bhk, setRateAmc3Bhk] = useState(0)
+  const [rateAmc4Bhk, setRateAmc4Bhk] = useState(0)
+
+
+  const fetchServicesData = async () => {
+    setServicesLoading(true)
+    try {
+      const res = await fetch('/api/services')
+      const data = await res.json()
+      if (data.services && data.rates) {
+        setGlobalServices(data.services)
+        setGlobalRates(data.rates)
+      }
+    } catch (err) {
+      console.error('Failed to fetch services data:', err)
+    } finally {
+      setServicesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchServicesData()
+    }
+  }, [currentUser])
+
   // Listen to auth state changes
   useEffect(() => {
     const unsubscribe = pb.authStore.onChange((token, model) => {
@@ -486,6 +540,167 @@ export default function BackendDashboard() {
     setTimeout(() => setSuccess(''), 4000)
   }
 
+  const handleSaveGlobalServices = async (updatedServices, updatedRates) => {
+    setError('')
+    setSuccess('')
+    try {
+      const res = await fetch('/api/services', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ services: updatedServices, rates: updatedRates })
+      })
+      const result = await res.json()
+      if (result.ok) {
+        setGlobalServices(updatedServices)
+        setGlobalRates(updatedRates)
+        showToast('Services database updated successfully!')
+        return true
+      } else {
+        setError(result.error || 'Failed to update services database.')
+        return false
+      }
+    } catch (err) {
+      setError('Network error saving services database.')
+      return false
+    }
+  }
+
+  const handleEditServiceSubmit = async (e) => {
+    e.preventDefault()
+    if (!editingService) return
+
+    const includesArr = svcIncludes.split(',').map(s => s.trim()).filter(Boolean)
+    const plansArr = svcPlans.split(',').map(s => s.trim()).filter(Boolean)
+    const benefitsArr = svcBenefits.split(',').map(s => s.trim()).filter(Boolean)
+
+    const updatedServices = globalServices.map(s => {
+      if (s.id === editingService.id) {
+        return {
+          ...s,
+          title: svcTitle,
+          text: svcText,
+          image: svcImage,
+          bestFor: svcBestFor || undefined,
+          includes: includesArr.length > 0 ? includesArr : undefined,
+          plans: plansArr.length > 0 ? plansArr : undefined,
+          benefits: benefitsArr.length > 0 ? benefitsArr : undefined,
+        }
+      }
+      return s
+    })
+
+    const updatedRates = {
+      ...globalRates,
+      [editingService.id]: {
+        label: rateLabel || svcTitle,
+        bhk: {
+          '1BHK': Number(rate1Bhk) || 0,
+          '2BHK': Number(rate2Bhk) || 0,
+          '3BHK': Number(rate3Bhk) || 0,
+          '4BHK+': Number(rate4Bhk) || 0
+        },
+        extraRoom: Number(rateExtraRoom) || 0,
+        amcBhk: {
+          '1BHK': Number(rateAmc1Bhk) || 0,
+          '2BHK': Number(rateAmc2Bhk) || 0,
+          '3BHK': Number(rateAmc3Bhk) || 0,
+          '4BHK+': Number(rateAmc4Bhk) || 0
+        }
+      }
+    }
+
+    const ok = await handleSaveGlobalServices(updatedServices, updatedRates)
+    if (ok) {
+      setEditingService(null)
+    }
+  }
+
+  const handleCreateServiceSubmit = async (e) => {
+    e.preventDefault()
+    if (!svcId.trim() || !svcTitle.trim()) {
+      setError('Service ID and Title are required.')
+      return
+    }
+
+    const cleanId = svcId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')
+    if (globalServices.some(s => s.id === cleanId)) {
+      setError(`A service with ID "${cleanId}" already exists.`)
+      return
+    }
+
+    const includesArr = svcIncludes.split(',').map(s => s.trim()).filter(Boolean)
+    const plansArr = svcPlans.split(',').map(s => s.trim()).filter(Boolean)
+    const benefitsArr = svcBenefits.split(',').map(s => s.trim()).filter(Boolean)
+
+    const newService = {
+      id: cleanId,
+      title: svcTitle,
+      text: svcText,
+      image: svcImage || '/hero/services sec 7/7.webp',
+      bestFor: svcBestFor || undefined,
+      includes: includesArr.length > 0 ? includesArr : undefined,
+      plans: plansArr.length > 0 ? plansArr : undefined,
+      benefits: benefitsArr.length > 0 ? benefitsArr : undefined,
+    }
+
+    const newRate = {
+      label: rateLabel || svcTitle,
+      bhk: {
+        '1BHK': Number(rate1Bhk) || 0,
+        '2BHK': Number(rate2Bhk) || 0,
+        '3BHK': Number(rate3Bhk) || 0,
+        '4BHK+': Number(rate4Bhk) || 0
+      },
+      extraRoom: Number(rateExtraRoom) || 0,
+      amcBhk: {
+        '1BHK': Number(rateAmc1Bhk) || 0,
+        '2BHK': Number(rateAmc2Bhk) || 0,
+        '3BHK': Number(rateAmc3Bhk) || 0,
+        '4BHK+': Number(rateAmc4Bhk) || 0
+      }
+    }
+
+    const updatedServices = [...globalServices, newService]
+    const updatedRates = {
+      ...globalRates,
+      [cleanId]: newRate
+    }
+
+    const ok = await handleSaveGlobalServices(updatedServices, updatedRates)
+    if (ok) {
+      setIsNewServiceOpen(false)
+      setSvcId('')
+      setSvcTitle('')
+      setSvcText('')
+      setSvcImage('')
+      setSvcBestFor('')
+      setSvcIncludes('')
+      setSvcPlans('')
+      setSvcBenefits('')
+      setRateLabel('')
+      setRate1Bhk(0)
+      setRate2Bhk(0)
+      setRate3Bhk(0)
+      setRate4Bhk(0)
+      setRateExtraRoom(0)
+      setRateAmc1Bhk(0)
+      setRateAmc2Bhk(0)
+      setRateAmc3Bhk(0)
+      setRateAmc4Bhk(0)
+    }
+  }
+
+  const handleDeleteService = async (serviceId) => {
+    if (!window.confirm(`Are you sure you want to delete the service "${serviceId}"? This will remove it from the homepage and pricing calculator.`)) return
+
+    const updatedServices = globalServices.filter(s => s.id !== serviceId)
+    const updatedRates = { ...globalRates }
+    delete updatedRates[serviceId]
+
+    await handleSaveGlobalServices(updatedServices, updatedRates)
+  }
+
+
   // Filter & Search computation
   const filteredBookings = bookings.filter((b) => {
     const matchesSearch =
@@ -698,6 +913,16 @@ export default function BackendDashboard() {
                 }`}
               >
                 👤 Customer Accounts ({customersList.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('services')}
+                className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition ${
+                  activeTab === 'services' 
+                    ? 'border-forest text-forest' 
+                    : 'border-transparent text-ink/40 hover:text-ink/65'
+                }`}
+              >
+                🛠️ Services & Pricing
               </button>
             </>
           )}
@@ -1129,6 +1354,160 @@ export default function BackendDashboard() {
               </div>
             )}
           </div>
+        ) : activeTab === 'services' && (currentUser.role === 'admin' || currentUser.role === 'superadmin') ? (
+          <div className="space-y-6">
+            {/* Header / Actions bar */}
+            <div className="bg-white rounded-xl border border-black/5 p-4 flex flex-wrap gap-4 items-center justify-between shadow-sm">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-forest">Manage Global Services & Pricing</h3>
+                <p className="text-xs text-ink/60">Manage all pest treatments, descriptions, and BHK rates shown on the website.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setSvcId('')
+                  setSvcTitle('')
+                  setSvcText('')
+                  setSvcImage('')
+                  setSvcBestFor('')
+                  setSvcIncludes('')
+                  setSvcPlans('')
+                  setSvcBenefits('')
+                  setRateLabel('')
+                  setRate1Bhk(0)
+                  setRate2Bhk(0)
+                  setRate3Bhk(0)
+                  setRate4Bhk(0)
+                  setRateExtraRoom(0)
+                  setIsNewServiceOpen(true)
+                }}
+                className="h-9 px-4 rounded-lg bg-eco border border-eco/30 hover:bg-eco/90 text-forest text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              >
+                <span>➕</span> Add New Service
+              </button>
+            </div>
+
+            {/* List Grid */}
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {globalServices.map((svc) => {
+                const rates = globalRates[svc.id] || { label: '', bhk: {}, extraRoom: 0 }
+                return (
+                  <div key={svc.id} className="bg-white rounded-2xl border border-black/5 p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition duration-200">
+                    <div>
+                      {/* Image / Header */}
+                      <div className="h-32 w-full rounded-xl overflow-hidden bg-forest/5 relative border border-black/5 mb-3">
+                        {svc.image ? (
+                          <img src={svc.image} alt={svc.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-ink/30 font-bold bg-cream/30">No Image</div>
+                        )}
+                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-forest text-cream font-mono text-[9px] uppercase tracking-wider font-bold">
+                          ID: {svc.id}
+                        </span>
+                      </div>
+
+                      <h4 className="font-serif text-base font-bold text-forest">{svc.title}</h4>
+                      <p className="text-xs text-ink/75 leading-relaxed mt-1 line-clamp-2" title={svc.text}>
+                        {svc.text}
+                      </p>
+
+                      {/* Pricing Table */}
+                      <div className="mt-4 border-t border-black/5 pt-3">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-forest/60">One-Time Rates</span>
+                            <div className="grid gap-1 text-[11px] mt-1.5 text-ink/85 font-medium">
+                              <div className="flex justify-between border-b border-black/[0.03] pb-0.5">
+                                <span className="text-ink/50">1 BHK</span>
+                                <span>₹{(rates.bhk?.['1BHK'] || 0).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between border-b border-black/[0.03] pb-0.5">
+                                <span className="text-ink/50">2 BHK</span>
+                                <span>₹{(rates.bhk?.['2BHK'] || 0).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between border-b border-black/[0.03] pb-0.5">
+                                <span className="text-ink/50">3 BHK</span>
+                                <span>₹{(rates.bhk?.['3BHK'] || 0).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between border-b border-black/[0.03] pb-0.5">
+                                <span className="text-ink/50">4 BHK+</span>
+                                <span>₹{(rates.bhk?.['4BHK+'] || 0).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between mt-1">
+                                <span className="text-ink/50">Extra Room</span>
+                                <span>₹{(rates.extraRoom || 0).toLocaleString('en-IN')}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-forest/60">AMC / Annual Rates</span>
+                            {rates.amcBhk ? (
+                              <div className="grid gap-1 text-[11px] mt-1.5 text-ink/85 font-medium">
+                                <div className="flex justify-between border-b border-black/[0.03] pb-0.5">
+                                  <span className="text-ink/50">1 BHK</span>
+                                  <span>₹{(rates.amcBhk?.['1BHK'] || 0).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-black/[0.03] pb-0.5">
+                                  <span className="text-ink/50">2 BHK</span>
+                                  <span>₹{(rates.amcBhk?.['2BHK'] || 0).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-black/[0.03] pb-0.5">
+                                  <span className="text-ink/50">3 BHK</span>
+                                  <span>₹{(rates.amcBhk?.['3BHK'] || 0).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-black/[0.03] pb-0.5">
+                                  <span className="text-ink/50">4 BHK+</span>
+                                  <span>₹{(rates.amcBhk?.['4BHK+'] || 0).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="text-[9px] text-ink/40 mt-1 italic">Flat rates cover whole house</div>
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-ink/40 mt-1.5 italic">Not Configured (Uses Flat ₹8,000)</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="mt-5 pt-3 border-t border-black/5 flex gap-2 justify-end">
+                      <button
+                        onClick={() => {
+                          setEditingService(svc)
+                          setSvcTitle(svc.title || '')
+                          setSvcText(svc.text || '')
+                          setSvcImage(svc.image || '')
+                          setSvcBestFor(svc.bestFor || '')
+                          setSvcIncludes((svc.includes || []).join(', '))
+                          setSvcPlans((svc.plans || []).join(', '))
+                          setSvcBenefits((svc.benefits || []).join(', '))
+                          setRateLabel(rates.label || '')
+                          setRate1Bhk(rates.bhk?.['1BHK'] || 0)
+                          setRate2Bhk(rates.bhk?.['2BHK'] || 0)
+                          setRate3Bhk(rates.bhk?.['3BHK'] || 0)
+                          setRate4Bhk(rates.bhk?.['4BHK+'] || 0)
+                          setRateExtraRoom(rates.extraRoom || 0)
+                          setRateAmc1Bhk(rates.amcBhk?.['1BHK'] || 0)
+                          setRateAmc2Bhk(rates.amcBhk?.['2BHK'] || 0)
+                          setRateAmc3Bhk(rates.amcBhk?.['3BHK'] || 0)
+                          setRateAmc4Bhk(rates.amcBhk?.['4BHK+'] || 0)
+                        }}
+                        className="h-8 px-3 rounded bg-forest/5 hover:bg-forest/10 text-forest text-xs font-bold transition"
+                      >
+                        Edit Details & Rates
+                      </button>
+                      <button
+                        onClick={() => handleDeleteService(svc.id)}
+                        className="h-8 px-3 rounded bg-urgent/5 hover:bg-urgent/10 text-urgent text-xs font-bold transition"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         ) : (
           <div className="py-16 text-center text-ink/45 font-medium bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
             Please select a valid tab to view details.
@@ -1559,6 +1938,281 @@ export default function BackendDashboard() {
                   className="btnPrimary flex-1 py-2 text-xs font-bold disabled:opacity-50"
                 >
                   {manualBookingLoading ? 'Creating...' : 'Record Booking'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Create/Edit Service Modal Overlay Form */}
+      {(isNewServiceOpen || editingService) && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 bg-forest/80 backdrop-blur-sm" 
+            onClick={() => {
+              setIsNewServiceOpen(false)
+              setEditingService(null)
+            }} 
+          />
+          
+          <form 
+            onSubmit={isNewServiceOpen ? handleCreateServiceSubmit : handleEditServiceSubmit} 
+            className="relative w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-premium ring-1 ring-black/5 flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="h-1.5 w-full bg-forest shrink-0" />
+            <div className="p-6 sm:p-8 space-y-4 overflow-y-auto">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-serif text-lg font-bold text-forest">
+                  {isNewServiceOpen ? 'Create New Service' : `Edit Service: ${editingService?.id}`}
+                </h3>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setIsNewServiceOpen(false)
+                    setEditingService(null)
+                  }} 
+                  className="rounded-lg p-1.5 text-ink/40 hover:bg-black/5"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Service ID (Only for creation) & Title */}
+              <div className="grid grid-cols-2 gap-4">
+                {isNewServiceOpen ? (
+                  <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                    <span>Service ID (slug, e.g. cockroach)</span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. termite"
+                      value={svcId}
+                      onChange={(e) => setSvcId(e.target.value)}
+                      className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                ) : null}
+
+                <label className={`grid gap-1 text-xs font-semibold text-forest ${isNewServiceOpen ? 'col-span-1' : 'col-span-2'}`}>
+                  <span>Service Title</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Termite Control"
+                    value={svcTitle}
+                    onChange={(e) => setSvcTitle(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                  />
+                </label>
+              </div>
+
+              {/* Description */}
+              <label className="grid gap-1 text-xs font-semibold text-forest">
+                <span>Description Text</span>
+                <textarea
+                  required
+                  rows="3"
+                  placeholder="Explain the service details..."
+                  value={svcText}
+                  onChange={(e) => setSvcText(e.target.value)}
+                  className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-xs resize-none"
+                />
+              </label>
+
+              {/* Image URL & Best For */}
+              <div className="grid grid-cols-2 gap-4">
+                <label className="grid gap-1 text-xs font-semibold text-forest">
+                  <span>Image URL / Path</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. /hero/services sec 7/1.webp"
+                    value={svcImage}
+                    onChange={(e) => setSvcImage(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-xs font-semibold text-forest">
+                  <span>Best For (Tagline)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Advanced protection against termites"
+                    value={svcBestFor}
+                    onChange={(e) => setSvcBestFor(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                  />
+                </label>
+              </div>
+
+              {/* Comma separated listings */}
+              <div className="grid grid-cols-3 gap-4">
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                  <span>Includes (comma-sep)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Spray, Gel, Bait"
+                    value={svcIncludes}
+                    onChange={(e) => setSvcIncludes(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-[11px]"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                  <span>Plans (comma-sep)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Standard, Gold"
+                    value={svcPlans}
+                    onChange={(e) => setSvcPlans(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-[11px]"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                  <span>Benefits (comma-sep)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Kids Safe, Odourless"
+                    value={svcBenefits}
+                    onChange={(e) => setSvcBenefits(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-[11px]"
+                  />
+                </label>
+              </div>
+
+              {/* Pricing Rates Block */}
+              <div className="border-t border-black/5 pt-3 mt-2">
+                <span className="text-xs font-bold text-forest block mb-2 uppercase tracking-wider">Pricing Configuration</span>
+                
+                <label className="grid gap-1 text-xs font-semibold text-forest mb-3">
+                  <span>Recommended Service Rate Label (for Calculator and Recommended box)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Anti Termite Treatment (Termites)"
+                    value={rateLabel}
+                    onChange={(e) => setRateLabel(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                  />
+                </label>
+
+                <div className="grid grid-cols-5 gap-3">
+                  <label className="grid gap-1 text-[10px] font-semibold text-forest">
+                    <span>1 BHK Rate (₹)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rate1Bhk}
+                      onChange={(e) => setRate1Bhk(parseFloat(e.target.value) || 0)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-[10px] font-semibold text-forest">
+                    <span>2 BHK Rate (₹)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rate2Bhk}
+                      onChange={(e) => setRate2Bhk(parseFloat(e.target.value) || 0)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-[10px] font-semibold text-forest">
+                    <span>3 BHK Rate (₹)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rate3Bhk}
+                      onChange={(e) => setRate3Bhk(parseFloat(e.target.value) || 0)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-[10px] font-semibold text-forest">
+                    <span>4 BHK+ Rate (₹)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rate4Bhk}
+                      onChange={(e) => setRate4Bhk(parseFloat(e.target.value) || 0)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-[10px] font-semibold text-forest">
+                    <span>Extra Room (₹)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rateExtraRoom}
+                      onChange={(e) => setRateExtraRoom(parseFloat(e.target.value) || 0)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                </div>
+
+                <span className="text-xs font-bold text-forest block mt-3 mb-2 uppercase tracking-wider">AMC / Annual Pricing Configuration</span>
+                <div className="grid grid-cols-4 gap-3">
+                  <label className="grid gap-1 text-[10px] font-semibold text-forest">
+                    <span>1 BHK AMC (₹)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rateAmc1Bhk}
+                      onChange={(e) => setRateAmc1Bhk(parseFloat(e.target.value) || 0)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-[10px] font-semibold text-forest">
+                    <span>2 BHK AMC (₹)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rateAmc2Bhk}
+                      onChange={(e) => setRateAmc2Bhk(parseFloat(e.target.value) || 0)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-[10px] font-semibold text-forest">
+                    <span>3 BHK AMC (₹)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rateAmc3Bhk}
+                      onChange={(e) => setRateAmc3Bhk(parseFloat(e.target.value) || 0)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-[10px] font-semibold text-forest">
+                    <span>4 BHK+ AMC (₹)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={rateAmc4Bhk}
+                      onChange={(e) => setRateAmc4Bhk(parseFloat(e.target.value) || 0)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-black/5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNewServiceOpen(false)
+                    setEditingService(null)
+                  }}
+                  className="flex-1 py-2 text-xs font-bold text-forest border border-black/10 rounded-lg hover:bg-black/5 bg-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btnPrimary flex-1 py-2 text-xs font-bold"
+                >
+                  {isNewServiceOpen ? 'Create Service' : 'Save Details & Rates'}
                 </button>
               </div>
             </div>

@@ -1,5 +1,8 @@
+import SERVICES_DATA from './services_custom.json'
+
 export const ANNOUNCEMENT =
   'Get 20% OFF on prepaid bookings + a FREE Pestyfi Home Protection Kit worth ₹1,499 with your first service.'
+
 
 export const NAV_LINKS = [
   { label: 'Home', href: '#top' },
@@ -8,7 +11,7 @@ export const NAV_LINKS = [
   { label: 'About Us', href: '#about' },
   { label: 'FAQs', href: '#faq' },
   { label: 'Book Now', href: '#book', cta: true },
-  { label: 'Talk to Expert', href: '#book', expert: true },
+  // { label: 'Talk to Expert', href: '#book', expert: true },
 ]
 
 export const HERO = {
@@ -48,53 +51,8 @@ export const WHY_CARDS = [
   { title: 'Long-Term Protection', text: 'Our treatments focus not only on eliminating pests but also on preventing future infestations through monitoring and preventive measures.', image: '/hero/why pestyfi - sec 6/9.webp', icon: '/hero/hero icons/30 years.webp' },
 ]
 
-export const SERVICES = [
-  {
-    id: 'general',
-    title: 'General Pest Control',
-    text: 'Eliminates common household pests including cockroaches, ants, spiders, silverfish, and crawling insects with long-term protection.',
-    image: '/hero/services sec 7/7.webp',
-    bestFor: 'General disinfection against common crawling insects',
-    includes: ['Cockroaches & Ants', 'Spiders & Silverfish', 'Baseboard Spraying', 'Drain Treatment'],
-  },
-  {
-    id: 'herbal',
-    title: 'Herbal Pest Control',
-    text: 'Natural, eco-friendly formulations that minimize chemical exposure while delivering excellent results.',
-    image: '/hero/services sec 7/8.webp',
-    bestFor: 'Eco-conscious households, homes with pets/infants',
-    includes: ['Eco-friendly Formulations', 'Kid & Pet Safe Ingredients', 'Natural Plant Extracts', 'Odourless Application'],
-  },
-  {
-    id: 'cockroach',
-    title: 'Cockroach Pest Control',
-    featured: true,
-    text: 'Advanced cockroach control targeting hidden colonies with gel baiting, spray treatment, and preventive support — safe, odourless, no vacating required.',
-    image: '/hero/services sec 7/9.webp',
-    plans: ['Advanced Cockroach Control', 'Standard Cockroach Control', 'Cockroach + Ant Control'],
-    amc: [
-      { name: '1 Year Protection', detail: '3 services in 12 months — every 4 months' },
-      { name: '2 Year Protection', detail: '6 services in 24 months — long-term hygiene' },
-      { name: 'Single Service', detail: 'Early-stage infestation or preventive treatment' },
-    ],
-    steps: [
-      { n: '1', title: 'Block the Hideouts', text: 'Gel baiting, crack-and-crevice treatment in kitchen, drains, cabinets, and bathroom corners.' },
-      { n: '2', title: 'Cut the Food Source', text: 'Drain-zone treatment, kitchen hygiene guidance, and food-source reduction.' },
-      { n: '3', title: 'Destroy the Colony', text: 'Gel baiting and targeted spray for visible cockroaches and hidden colonies.' },
-      { n: '4', title: 'Monitor and Protect', text: 'Scheduled follow-ups, service tracking, and warranty-backed AMC support.' },
-    ],
-    benefits: [
-      'Safe for kids and pets', 'No need to vacate', 'No need to empty kitchen',
-      'Odourless & eco-conscious', 'Targets hidden colonies', '365-day support',
-    ],
-  },
-  { id: 'termite', title: 'Termite Pest Control', text: 'Advanced anti-termite treatments for homes, offices, shops, warehouses, and industrial facilities.', image: '/hero/services sec 7/1.webp' },
-  { id: 'bedbug', title: 'Bed Bug Pest Control', text: 'Complete elimination of adult bed bugs and eggs for healthier, peaceful sleep.', image: '/hero/services sec 7/2.webp' },
-  { id: 'mosquito', title: 'Mosquito Pest Control', text: 'Indoor and outdoor mosquito management to protect families from mosquito-borne diseases.', image: '/hero/services sec 7/3.webp' },
-  { id: 'rodent', title: 'Rodent Pest Control', text: 'Inspection, trapping, exclusion, and preventive solutions to keep your property rodent-free.', image: '/hero/services sec 7/4.webp' },
-  { id: 'ant', title: 'Ant Control', text: 'Colony-focused treatment that eliminates infestations at the source.', image: '/hero/services sec 7/5.webp' },
-  { id: 'tick', title: 'Tick Pest Control', text: 'Specialized treatment for homes with pets, gardens, and family spaces.', image: '/hero/services sec 7/6.webp' },
-]
+export const SERVICES = SERVICES_DATA.services
+
 
 export const SPACES = [
   {
@@ -131,36 +89,5 @@ export const FAQS = [
   { q: 'Which areas do you serve?', a: 'Mumbai, Navi Mumbai, Thane, and nearby areas including Kalyan, Dombivli, Panvel, Mira Bhayandar, Bhiwandi, Ambernath, and Badlapur.' },
 ]
 
-export const SERVICE_RATES = {
-  cockroach: {
-    label: 'Advance Golden Gel (Cockroaches)',
-    bhk: { '1BHK': 2500, '2BHK': 4000, '3BHK': 5500, '4BHK+': 6500 },
-    extraRoom: 700
-  },
-  termite: {
-    label: 'Anti Termite Treatment (Termites)',
-    bhk: { '1BHK': 4500, '2BHK': 6000, '3BHK': 7500, '4BHK+': 10500 },
-    extraRoom: 1000
-  },
-  bedbug: {
-    label: 'BedBug Treatment (Bedbugs)',
-    bhk: { '1BHK': 3500, '2BHK': 5000, '3BHK': 6500, '4BHK+': 8500 },
-    extraRoom: 800
-  },
-  general: {
-    label: 'General Disinfection (Crawling Insects)',
-    bhk: { '1BHK': 3000, '2BHK': 4000, '3BHK': 5000, '4BHK+': 6500 },
-    extraRoom: 500
-  },
-  mosquito: {
-    label: 'Mosquito Treatment (Mosquitoes)',
-    bhk: { '1BHK': 3000, '2BHK': 4000, '3BHK': 5500, '4BHK+': 6500 },
-    extraRoom: 500
-  },
-  all: {
-    label: 'All-in-One Protection (All Pests)',
-    bhk: { '1BHK': 8000, '2BHK': 8000, '3BHK': 8000, '4BHK+': 8000 },
-    extraRoom: 0
-  }
-}
+export const SERVICE_RATES = SERVICES_DATA.rates
 
