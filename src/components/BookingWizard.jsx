@@ -617,21 +617,10 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                   <span className="text-eco font-bold">FREE</span>
                 </div>
               </>
-            ) : duration === 'annual' || service === 'all' ? (
-              <>
-                <div className="flex justify-between font-bold text-sm text-cream">
-                  <span>Package Rate ({duration === 'annual' ? 'Annual' : 'One-Time'}):</span>
-                  <span>₹{total.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="border-t border-white/10 pt-2 flex justify-between font-bold text-base text-amber">
-                  <span>Estimated Price:</span>
-                  <span>₹{total.toLocaleString('en-IN')}</span>
-                </div>
-              </>
             ) : (
               <>
                 <div className="flex justify-between">
-                  <span>Base rate ({bhkSize}):</span>
+                  <span>Base rate ({duration === 'annual' ? 'Annual Plan' : 'One-Time'} - {service === 'all' ? 'All-in-One' : bhkSize}):</span>
                   <span>₹{base.toLocaleString('en-IN')}</span>
                 </div>
                 {extraRooms > 0 && (
@@ -839,12 +828,27 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
         <div className="space-y-4">
           <div className="bg-forest/50 border border-white/5 rounded-xl p-3 text-xs text-cream/90 space-y-1.5">
             <h4 className="font-serif font-bold text-sm text-amber border-b border-white/10 pb-1.5 mb-2">Order Summary</h4>
-            <div className="flex justify-between"><span>Service:</span> <span className="font-semibold">{currentRate.label}</span></div>
-            {service !== 'all' && <div className="flex justify-between"><span>BHK Size:</span> <span>{bhkSize}</span></div>}
-            {extraRooms > 0 && <div className="flex justify-between"><span>Extra Rooms:</span> <span>{extraRooms}</span></div>}
-            {!needsInspection && service !== 'all' && (
-              <div className="flex justify-between text-eco font-medium"><span>Prepaid Discount (20%):</span> <span>-₹{discount.toLocaleString('en-IN')}</span></div>
+            <div className="flex justify-between"><span>Service:</span> <span className="font-semibold">{currentRate.label} ({duration === 'annual' ? 'Annual Plan' : 'One-Time'})</span></div>
+            {propertyType !== 'commercial' && (
+              <div className="flex justify-between"><span>BHK Size:</span> <span>{service === 'all' ? 'All-in-One' : bhkSize}</span></div>
             )}
+            {extraRooms > 0 && <div className="flex justify-between"><span>Extra Rooms:</span> <span>{extraRooms}</span></div>}
+            
+            {propertyType !== 'commercial' && (
+              <>
+                <div className="flex justify-between mt-1 text-[11px] text-cream/70">
+                  <span>Subtotal:</span>
+                  <span>₹{subtotal.toLocaleString('en-IN')}</span>
+                </div>
+                {!needsInspection && discount > 0 && (
+                  <div className="flex justify-between text-[11px] text-eco font-medium">
+                    <span>Prepaid Discount (20% OFF):</span>
+                    <span>-₹{discount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+              </>
+            )}
+
             <div className="flex justify-between text-sm font-bold text-cream border-t border-white/10 pt-1.5">
               <span>{needsInspection ? 'Estimated Cost:' : 'Net Total:'}</span>
               <span>₹{total.toLocaleString('en-IN')}</span>
