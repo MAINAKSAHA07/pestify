@@ -3,6 +3,8 @@ import { pb } from '../lib/pocketbase'
 import { SERVICE_RATES, SERVICES } from '../data/content'
 import { APPROVED_PINCODES } from '../data/pincodes'
 import { parseStoredAddress, formatAddress } from './ProfileModal'
+import Calendar from 'react-calendar'
+import 'react-calendar/dist/Calendar.css'
 
 export default function BookingWizard({ currentUser, locationInfo, services: customServices, rates: customRates }) {
   const finalServices = customServices || SERVICES
@@ -28,10 +30,22 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
   const [pincode, setPincode] = useState('')
   const [location, setLocation] = useState('')
 
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return new Date()
+    const parts = dateStr.split('-')
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10))
+    }
+    return new Date(dateStr)
+  }
+
   const getTomorrowString = () => {
     const tom = new Date()
     tom.setDate(tom.getDate() + 1)
-    return tom.toISOString().substring(0, 10)
+    const yyyy = tom.getFullYear()
+    const mm = String(tom.getMonth() + 1).padStart(2, '0')
+    const dd = String(tom.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
   }
 
   const [preferredDate, setPreferredDate] = useState(getTomorrowString())
@@ -753,56 +767,34 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
             <span className="text-xs font-bold text-cream/70 block mb-3 uppercase tracking-wider">Preferred Service Schedule</span>
             
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-cream">Select Date</span>
-                <button
-                  type="button"
-                  onClick={handleOpenDatePicker}
-                  className="text-[10px] font-bold text-amber hover:text-amber/80 cursor-pointer flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10 transition"
-                >
-                  <span>📅 Other Date...</span>
-                </button>
-                <input
-                  ref={dateInputRef}
-                  type="date"
-                  min={getTomorrowString()}
-                  value={preferredDate}
-                  onChange={(e) => setPreferredDate(e.target.value)}
-                  className="sr-only"
+              <span className="text-xs font-semibold text-cream block mb-2">Select Date</span>
+              <div className="react-calendar-container">
+                <Calendar
+                  onChange={(val) => {
+                    if (val) {
+                      const dateObj = Array.isArray(val) ? val[0] : val
+                      if (dateObj) {
+                        const yyyy = dateObj.getFullYear()
+                        const mm = String(dateObj.getMonth() + 1).padStart(2, '0')
+                        const dd = String(dateObj.getDate()).padStart(2, '0')
+                        setPreferredDate(`${yyyy}-${mm}-${dd}`)
+                      }
+                    }
+                  }}
+                  value={preferredDate ? parseLocalDate(preferredDate) : new Date()}
+                  minDate={(() => {
+                    const target = new Date()
+                    target.setDate(target.getDate() + 1)
+                    target.setHours(0, 0, 0, 0)
+                    return target
+                  })()}
+                  maxDate={(() => {
+                    const target = new Date()
+                    target.setMonth(target.getMonth() + 3)
+                    target.setHours(23, 59, 59, 999)
+                    return target
+                  })()}
                 />
-              </div>
-
-              {/* Horizontal Swipeable Date Stripe */}
-              <div 
-                className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                {Array.from({ length: 14 }).map((_, i) => {
-                  const d = new Date()
-                  d.setDate(d.getDate() + 1 + i)
-                  const dayStr = d.toLocaleDateString('en-US', { weekday: 'short' })
-                  const dateNum = d.getDate()
-                  const monthStr = d.toLocaleDateString('en-US', { month: 'short' })
-                  const fullDate = d.toISOString().substring(0, 10)
-                  const isSelected = preferredDate === fullDate
-
-                  return (
-                    <button
-                      key={fullDate}
-                      type="button"
-                      onClick={() => setPreferredDate(fullDate)}
-                      className={`flex flex-col items-center justify-center p-2.5 rounded-xl min-w-[64px] border transition-all duration-200 snap-start ${
-                        isSelected
-                          ? 'bg-amber border-amber text-forest font-bold scale-[1.03] shadow-md shadow-amber/20'
-                          : 'bg-white/5 border-white/10 text-cream/90 hover:bg-white/10'
-                      }`}
-                    >
-                      <span className="text-[9px] uppercase tracking-wider font-semibold opacity-75">{dayStr}</span>
-                      <span className="text-lg font-extrabold my-0.5">{dateNum}</span>
-                      <span className="text-[8px] uppercase tracking-wider font-bold opacity-60">{monthStr}</span>
-                    </button>
-                  )
-                })}
               </div>
             </div>
 

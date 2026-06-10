@@ -90,6 +90,17 @@ const formatDateTime = (dateStr) => {
   })
 }
 
+const formatPreferredDate = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return dateStr
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  })
+}
+
 const renderBookingTimeline = (item) => {
   const isInspection = item.paymentMethod === 'home_inspection' || String(item.status).toLowerCase().includes('inspection');
   const status = String(item.status).toLowerCase();
