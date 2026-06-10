@@ -86,6 +86,25 @@ function App() {
   })
   const [isLocationOpen, setIsLocationOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [isBookingOpen, setIsBookingOpen] = useState(false)
+
+  // Global click listener to intercept "#book" links and open modal on mobile
+  useEffect(() => {
+    const handleGlobalClick = (e) => {
+      const anchor = e.target.closest('a')
+      if (anchor && anchor.getAttribute('href') === '#book' && window.innerWidth < 1024) {
+        e.preventDefault()
+        setIsBookingOpen(true)
+        // Auto-close navigation drawer if open
+        const navCloseBtn = document.querySelector('.navClose')
+        if (navCloseBtn) {
+          navCloseBtn.click()
+        }
+      }
+    }
+    document.addEventListener('click', handleGlobalClick)
+    return () => document.removeEventListener('click', handleGlobalClick)
+  }, [])
 
   useEffect(() => {
     if (!locationInfo) {
@@ -426,7 +445,15 @@ function App() {
               </div> */}
             </div>
             <div className="reveal md:col-span-7">
-              <div className="bg-forest rounded-2xl shadow-premium border border-white/10 overflow-hidden">
+              <div className="block lg:hidden w-full">
+                <button
+                  onClick={() => setIsBookingOpen(true)}
+                  className="btnPrimary w-full py-4 text-base font-bold shadow-premium"
+                >
+                  📅 Select Plan & Book Now
+                </button>
+              </div>
+              <div className="hidden lg:block bg-forest rounded-2xl shadow-premium border border-white/10 overflow-hidden">
                 <BookingWizard currentUser={currentUser} locationInfo={locationInfo} services={dynamicServices} rates={dynamicRates} />
               </div>
             </div>
@@ -976,7 +1003,17 @@ function App() {
                 {/* <a href={CONTACT.telHref} className="btnGhost">Talk to Expert</a> */}
               </div>
             </div>
-            <BookingWizard currentUser={currentUser} locationInfo={locationInfo} services={dynamicServices} rates={dynamicRates} />
+            <div className="block lg:hidden w-full mt-6">
+              <button
+                onClick={() => setIsBookingOpen(true)}
+                className="btnLight w-full py-4 text-base font-bold text-forest shadow-premium"
+              >
+                📅 Choose Plan & Book Now
+              </button>
+            </div>
+            <div className="hidden lg:block w-full">
+              <BookingWizard currentUser={currentUser} locationInfo={locationInfo} services={dynamicServices} rates={dynamicRates} />
+            </div>
 
           </div>
         </section>
@@ -1058,6 +1095,38 @@ function App() {
 
       {/* Social Proof Sales Notifications */}
       <SalesNotifier />
+
+      {/* Booking Wizard Modal (Mobile Only) */}
+      {isBookingOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-forest/80 backdrop-blur-sm" onClick={() => setIsBookingOpen(false)} />
+
+          {/* Modal Content Card */}
+          <div className="relative w-full max-w-lg overflow-y-auto max-h-[90vh] rounded-2xl border border-white/10 bg-forest shadow-premium ring-1 ring-black/5">
+            {/* Close Button overlay */}
+            <button
+              type="button"
+              onClick={() => setIsBookingOpen(false)}
+              className="absolute top-4 right-4 z-[100] rounded-lg p-1.5 text-cream/60 hover:bg-white/10 transition-colors focus:outline-none bg-black/20"
+              aria-label="Close booking modal"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <div className="p-1">
+              <BookingWizard
+                currentUser={currentUser}
+                locationInfo={locationInfo}
+                services={dynamicServices}
+                rates={dynamicRates}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky Mobile/Tablet CTA */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/5 px-4 py-4 flex gap-3 lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[calc(16px+env(safe-area-inset-bottom))]">

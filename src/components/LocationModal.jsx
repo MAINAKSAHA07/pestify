@@ -177,7 +177,7 @@ export default function LocationModal({ isOpen, onClose, onSelect }) {
                 Pestyfi operates in selected regions across Mumbai, Navi Mumbai, and Thane. Let's verify if we can protect your home today.
               </p>
 
-              {/* Geolocation Button */}
+              {/* Geolocation Button (Commented out because auto-detection is unreliable)
               <button
                 type="button"
                 disabled={isLocating}
@@ -206,6 +206,7 @@ export default function LocationModal({ isOpen, onClose, onSelect }) {
                 </div>
                 <span className="relative bg-white px-3 text-xs font-semibold uppercase tracking-wider text-ink/40">Or enter manually</span>
               </div>
+              */}
 
               {/* Pincode Input Form */}
               <form
