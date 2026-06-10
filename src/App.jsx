@@ -999,14 +999,14 @@ function App() {
                 Get 20% OFF on prepaid bookings + free Pestyfi Home Protection Kit worth ₹1,499. Serving Mumbai, Navi Mumbai & Thane.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Cta href={CONTACT.waHref}>Book Now & Get 20% OFF</Cta>
+                <Cta href={CONTACT.waHref}>Talk to Agent</Cta>
                 {/* <a href={CONTACT.telHref} className="btnGhost">Talk to Expert</a> */}
               </div>
             </div>
             <div className="block lg:hidden w-full mt-6">
               <button
                 onClick={() => setIsBookingOpen(true)}
-                className="btnLight w-full py-4 text-base font-bold text-forest shadow-premium"
+                className="btnLight w-full py-4 text-base font-bold shadow-premium"
               >
                 📅 Choose Plan & Book Now
               </button>
@@ -1137,7 +1137,7 @@ function App() {
           className="flex-1 h-[52px] rounded-xl bg-cream/30 hover:bg-cream/50 border border-black/5 flex items-center justify-center gap-2 text-xs font-bold text-forest transition"
         >
           <span className="text-sm">💬</span>
-          Talk to Expert
+          Talk to Agent
         </a>
         <a
           href="#book"

@@ -35,7 +35,7 @@
   }
 
   .btnLight {
-    @apply btnX bg-forest text-cream ring-1 ring-white/10 hover:bg-green;
+    @apply btnX bg-cream text-forest ring-1 ring-black/5 hover:bg-white hover:text-green;
   }
 
   .pillX {
