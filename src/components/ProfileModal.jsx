@@ -111,7 +111,7 @@ const renderBookingTimeline = (item) => {
     steps = [
       { key: 'placed', label: 'Inspection Requested', subtext: 'We received your request.', isDone: true, date: item.created },
       { key: 'confirmed', label: 'Request Confirmed', subtext: 'Our team confirmed your request.', isDone: !['pending', 'inspection required'].includes(status) },
-      { key: 'scheduled', label: 'Inspector Scheduled', subtext: 'Inspector assigned & scheduled.', isDone: ['scheduled', 'in_progress', 'completed'].includes(status) },
+      { key: 'scheduled', label: 'Inspector Scheduled', subtext: item.assignedName ? `Inspector assigned: ${item.assignedName}.` : 'Inspector assigned & scheduled.', isDone: ['scheduled', 'in_progress', 'completed'].includes(status) },
       { key: 'in_progress', label: 'On-site Inspection', subtext: 'Inspector is performing check.', isDone: ['in_progress', 'completed'].includes(status) },
       { key: 'completed', label: 'Inspection Completed', subtext: 'Home inspection done.', isDone: status === 'completed', date: item.performedAt },
     ];
@@ -119,7 +119,7 @@ const renderBookingTimeline = (item) => {
     steps = [
       { key: 'placed', label: 'Booking Placed', subtext: 'Booking received successfully.', isDone: true, date: item.created },
       { key: 'confirmed', label: 'Payment Confirmed', subtext: 'Payment verified successfully.', isDone: !['pending'].includes(status) },
-      { key: 'scheduled', label: 'Technician Scheduled', subtext: 'Technician assigned & scheduled.', isDone: ['scheduled', 'in_progress', 'completed'].includes(status) },
+      { key: 'scheduled', label: 'Technician Scheduled', subtext: item.assignedName ? `Technician assigned: ${item.assignedName}.` : 'Technician assigned & scheduled.', isDone: ['scheduled', 'in_progress', 'completed'].includes(status) },
       { key: 'in_progress', label: 'Service In Progress', subtext: 'Technician is performing service.', isDone: ['in_progress', 'completed'].includes(status) },
       { key: 'completed', label: 'Service Completed', subtext: 'Pest treatment completed.', isDone: status === 'completed', date: item.performedAt },
     ];
@@ -609,17 +609,52 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
                   </div>
 
                   {item.assignedName && (
-                    <div className="mt-3 bg-forest/5 border border-forest/10 rounded-xl p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-150">
-                      <div className="text-xl">🧑‍🔧</div>
-                      <div>
-                        <div className="text-[10px] font-bold text-forest uppercase tracking-wider">Assigned Technician</div>
-                        <div className="text-xs font-bold text-ink mt-0.5">{item.assignedName}</div>
-                        {item.assignedPhone && (
-                          <a href={`tel:${item.assignedPhone}`} className="text-[11px] text-forest hover:underline font-semibold block mt-0.5">
-                            📞 {item.assignedPhone}
-                          </a>
+                    <div className="mt-3 bg-forest/[0.03] border border-forest/10 rounded-xl p-3.5 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-forest/10 text-lg">
+                          🧑‍🔧
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-bold text-forest uppercase tracking-wider">Assigned Expert</div>
+                          <div className="text-xs font-bold text-ink mt-0.5">{item.assignedName}</div>
+                        </div>
+                      </div>
+
+                      {/* Current Action/Status Note */}
+                      <div className="rounded-lg bg-white/60 p-2 text-[10px] border border-black/[0.03] text-ink/75 leading-relaxed">
+                        <span className="font-semibold text-forest">Current Action: </span>
+                        {String(item.status).toLowerCase() === 'completed' && (
+                          <span>Pest control service completed successfully by {item.assignedName} {item.performedAt && `on ${new Date(item.performedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`}.</span>
+                        )}
+                        {String(item.status).toLowerCase() === 'in_progress' && (
+                          <span>{item.assignedName} is currently on-site performing the treatment.</span>
+                        )}
+                        {String(item.status).toLowerCase() === 'scheduled' && (
+                          <span>{item.assignedName} is scheduled to arrive at your location {item.preferredDate && `on ${item.preferredDate}`} {item.preferredTime && `around ${item.preferredTime}`}.</span>
+                        )}
+                        {!['completed', 'in_progress', 'scheduled'].includes(String(item.status).toLowerCase()) && (
+                          <span>Assigned to attend your booking. Currently coordinating schedule.</span>
                         )}
                       </div>
+
+                      {item.assignedPhone && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <a
+                            href={`tel:${item.assignedPhone}`}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-forest px-3 py-1.5 text-[10px] font-bold text-cream hover:bg-green transition-all shadow-sm"
+                          >
+                            <span>📞</span> Call Expert
+                          </a>
+                          <a
+                            href={`https://wa.me/91${item.assignedPhone.replace(/\D/g, '').slice(-10)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-1.5 text-[10px] font-bold text-white hover:bg-[#20ba5a] transition-all shadow-sm"
+                          >
+                            <span>💬</span> WhatsApp
+                          </a>
+                        </div>
+                      )}
                     </div>
                   )}
 

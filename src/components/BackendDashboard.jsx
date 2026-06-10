@@ -1841,6 +1841,35 @@ export default function BackendDashboard() {
                 </label>
               </div>
 
+              {/* Quick Assign Registered Staff */}
+              <div className="grid grid-cols-1 gap-4">
+                <label className="grid gap-1 text-xs font-semibold text-forest">
+                  <span>Quick Assign Staff Member</span>
+                  <select
+                    value={usersList.find(u => (u.name && u.name === editAssignedName) || (!u.name && u.email === editAssignedName))?.id || 'manual'}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      if (selectedId === 'manual') return;
+                      const emp = usersList.find(u => u.id === selectedId);
+                      if (emp) {
+                        setEditAssignedName(emp.name || emp.email || '');
+                        setEditAssignedPhone(emp.phone || '');
+                      }
+                    }}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer text-xs"
+                  >
+                    <option value="manual">Custom / Enter Manually</option>
+                    {usersList
+                      .filter(user => user.role === 'admin' || user.role === 'employee' || user.role === 'superadmin')
+                      .map(emp => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name ? `${emp.name} (${emp.role})` : `${emp.email} (${emp.role})`}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </div>
+
               {/* Assigned Technician details */}
               <div className="grid grid-cols-2 gap-4">
                 <label className="grid gap-1 text-xs font-semibold text-forest col-span-2 sm:col-span-1">
