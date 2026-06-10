@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { pb } from '../lib/pocketbase'
 import { SERVICE_RATES, SERVICES } from '../data/content'
 import { APPROVED_PINCODES } from '../data/pincodes'
@@ -36,6 +36,18 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
 
   const [preferredDate, setPreferredDate] = useState(getTomorrowString())
   const [preferredTime, setPreferredTime] = useState('09:00 AM - 12:00 PM')
+
+  const dateInputRef = useRef(null)
+
+  const handleOpenDatePicker = () => {
+    if (dateInputRef.current) {
+      try {
+        dateInputRef.current.showPicker()
+      } catch (err) {
+        dateInputRef.current.click()
+      }
+    }
+  }
 
   // Sync location if updated from header
   useEffect(() => {
@@ -739,25 +751,68 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
 
           <div className="border-t border-white/10 pt-4 mt-2">
             <span className="text-xs font-bold text-cream/70 block mb-3 uppercase tracking-wider">Preferred Service Schedule</span>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="grid gap-1 text-xs font-semibold text-cream col-span-2 sm:col-span-1">
-                <span>Select Date</span>
+            
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-cream">Select Date</span>
+                <button
+                  type="button"
+                  onClick={handleOpenDatePicker}
+                  className="text-[10px] font-bold text-amber hover:text-amber/80 cursor-pointer flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10 transition"
+                >
+                  <span>📅 Other Date...</span>
+                </button>
                 <input
+                  ref={dateInputRef}
                   type="date"
-                  required
                   min={getTomorrowString()}
                   value={preferredDate}
                   onChange={(e) => setPreferredDate(e.target.value)}
-                  className="h-10 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer text-xs"
+                  className="sr-only"
                 />
-              </label>
+              </div>
 
-              <label className="grid gap-1 text-xs font-semibold text-cream col-span-2 sm:col-span-1">
+              {/* Horizontal Swipeable Date Stripe */}
+              <div 
+                className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {Array.from({ length: 14 }).map((_, i) => {
+                  const d = new Date()
+                  d.setDate(d.getDate() + 1 + i)
+                  const dayStr = d.toLocaleDateString('en-US', { weekday: 'short' })
+                  const dateNum = d.getDate()
+                  const monthStr = d.toLocaleDateString('en-US', { month: 'short' })
+                  const fullDate = d.toISOString().substring(0, 10)
+                  const isSelected = preferredDate === fullDate
+
+                  return (
+                    <button
+                      key={fullDate}
+                      type="button"
+                      onClick={() => setPreferredDate(fullDate)}
+                      className={`flex flex-col items-center justify-center p-2.5 rounded-xl min-w-[64px] border transition-all duration-200 snap-start ${
+                        isSelected
+                          ? 'bg-amber border-amber text-forest font-bold scale-[1.03] shadow-md shadow-amber/20'
+                          : 'bg-white/5 border-white/10 text-cream/90 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="text-[9px] uppercase tracking-wider font-semibold opacity-75">{dayStr}</span>
+                      <span className="text-lg font-extrabold my-0.5">{dateNum}</span>
+                      <span className="text-[8px] uppercase tracking-wider font-bold opacity-60">{monthStr}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <label className="grid gap-1 text-xs font-semibold text-cream">
                 <span>Preferred Time Slot</span>
                 <select
                   value={preferredTime}
                   onChange={(e) => setPreferredTime(e.target.value)}
-                  className="h-10 w-full rounded-xl bg-white/10 px-2 text-cream ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer text-xs"
+                  className="h-10 w-full rounded-xl bg-white/10 px-3 text-cream ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer text-xs"
                   style={{ colorScheme: 'dark' }}
                 >
                   <option className="bg-forest text-cream" value="09:00 AM - 12:00 PM">09:00 AM - 12:00 PM (Morning)</option>
