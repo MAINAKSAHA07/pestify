@@ -488,7 +488,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                 setService(selectedPest)
                 setExtraRooms(0)
               }}
-              className="h-11 rounded-xl bg-forest px-3.5 text-sm text-cream ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer"
+              className="h-11 w-full rounded-xl bg-forest px-3.5 text-sm text-cream ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer"
             >
               {finalServices.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -647,7 +647,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
               placeholder="e.g. Priya Sharma"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="h-11 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
+              className="h-11 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
             />
           </label>
 
@@ -659,7 +659,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
               placeholder="+91 XXXXX XXXXX"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="h-11 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
+              className="h-11 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
             />
           </label>
 
@@ -673,7 +673,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                   placeholder="e.g. Flat A/6"
                   value={flat}
                   onChange={(e) => setFlat(e.target.value)}
-                  className="h-10 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
+                  className="h-10 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
                 />
               </label>
               
@@ -684,7 +684,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                   placeholder="e.g. Shripad Smruti"
                   value={building}
                   onChange={(e) => setBuilding(e.target.value)}
-                  className="h-10 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
+                  className="h-10 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
                 />
               </label>
 
@@ -695,7 +695,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                   placeholder="e.g. Star Colony / Shanti Dham"
                   value={society}
                   onChange={(e) => setSociety(e.target.value)}
-                  className="h-10 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
+                  className="h-10 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
                 />
               </label>
 
@@ -706,7 +706,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                   placeholder="e.g. Manpada Road, Off Link Road"
                   value={area}
                   onChange={(e) => setArea(e.target.value)}
-                  className="h-10 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
+                  className="h-10 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
                 />
               </label>
 
@@ -717,7 +717,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                   placeholder="e.g. Dombivli"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  className="h-10 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
+                  className="h-10 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
                 />
               </label>
 
@@ -731,7 +731,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                   required
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
-                  className="h-10 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
+                  className="h-10 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
                 />
               </label>
             </div>
@@ -748,7 +748,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                   min={getTomorrowString()}
                   value={preferredDate}
                   onChange={(e) => setPreferredDate(e.target.value)}
-                  className="h-10 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer text-xs"
+                  className="h-10 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer text-xs"
                 />
               </label>
 
@@ -757,7 +757,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                 <select
                   value={preferredTime}
                   onChange={(e) => setPreferredTime(e.target.value)}
-                  className="h-10 rounded-xl bg-white/10 px-2 text-cream ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer text-xs"
+                  className="h-10 w-full rounded-xl bg-white/10 px-2 text-cream ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer text-xs"
                   style={{ colorScheme: 'dark' }}
                 >
                   <option className="bg-forest text-cream" value="09:00 AM - 12:00 PM">09:00 AM - 12:00 PM (Morning)</option>
