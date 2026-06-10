@@ -1,6 +1,6 @@
 export const CONTACT = {
-  phoneE164: '+91XXXXXXXXXX',
-  telHref: 'tel:+91XXXXXXXXXX',
-  waHref: 'https://wa.me/91XXXXXXXXXX',
+  phoneE164: '+918879994442',
+  telHref: 'tel:+918879994442',
+  waHref: 'https://wa.me/918879994442',
 }
 

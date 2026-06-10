@@ -12,6 +12,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
   const [duration, setDuration] = useState('one-time')
   const [pest, setPest] = useState('cockroach')
   const [service, setService] = useState('cockroach')
+  const [propertyType, setPropertyType] = useState('residential')
   const [bhkSize, setBhkSize] = useState('1BHK')
   const [extraRooms, setExtraRooms] = useState(0)
 
@@ -26,6 +27,15 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
   const [city, setCity] = useState('')
   const [pincode, setPincode] = useState('')
   const [location, setLocation] = useState('')
+
+  const getTomorrowString = () => {
+    const tom = new Date()
+    tom.setDate(tom.getDate() + 1)
+    return tom.toISOString().substring(0, 10)
+  }
+
+  const [preferredDate, setPreferredDate] = useState(getTomorrowString())
+  const [preferredTime, setPreferredTime] = useState('09:00 AM - 12:00 PM')
 
   // Sync location if updated from header
   useEffect(() => {
@@ -105,7 +115,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
     }
   }, [])
 
-  const needsInspection = ['termite', 'bedbug', 'mosquito'].includes(service) || finalServices.find(s => s.id === service)?.inspectionRequired
+  const needsInspection = ['termite', 'bedbug', 'mosquito'].includes(service) || finalServices.find(s => s.id === service)?.inspectionRequired || propertyType === 'commercial'
 
   const currentRate = finalRates[service]
 
@@ -202,12 +212,15 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
           phone,
           location,
           service: `${currentRate.label} (${duration === 'annual' ? 'Annual Plan' : 'One-Time'})`,
-          bhkSize,
-          extraRooms,
+          bhkSize: propertyType === 'commercial' ? 'Commercial' : bhkSize,
+          extraRooms: propertyType === 'commercial' ? 0 : extraRooms,
           price: 0,
           paymentMethod: 'home_inspection',
           status: 'Inspection Required',
           paymentId: '',
+          preferredDate,
+          preferredTime,
+          propertyType,
         })
 
         // Sync back to profile in PocketBase if logged in
@@ -267,12 +280,15 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
             phone,
             location,
             service: `${currentRate.label} (${duration === 'annual' ? 'Annual Plan' : 'One-Time'})`,
-            bhkSize,
-            extraRooms,
+            bhkSize: propertyType === 'commercial' ? 'Commercial' : bhkSize,
+            extraRooms: propertyType === 'commercial' ? 0 : extraRooms,
             price: total,
             paymentMethod: 'razorpay',
             status: 'paid',
             paymentId: response.razorpay_payment_id,
+            preferredDate,
+            preferredTime,
+            propertyType,
           })
 
           // Sync back to profile in PocketBase if logged in
@@ -437,6 +453,31 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
             </div>
           </div>
 
+          <div>
+            <span className="text-sm font-semibold text-cream block mb-2">Property Type</span>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'residential', label: '🏠 Residential' },
+                { id: 'commercial', label: '🏢 Commercial' }
+              ].map((type) => (
+                <button
+                  key={type.id}
+                  type="button"
+                  onClick={() => {
+                    setPropertyType(type.id)
+                  }}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                    propertyType === type.id
+                      ? 'bg-amber text-forest border-amber shadow-md'
+                      : 'bg-white/5 text-cream/80 border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <label className="grid gap-1.5 text-sm">
             <span className="font-semibold text-cream">Identify Your Pest Threat</span>
             <select
@@ -474,7 +515,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
             </div>
           )}
 
-          {duration === 'annual' || service === 'all' ? (
+          {propertyType === 'residential' && (duration === 'annual' || service === 'all') ? (
             <div className="bg-forest/30 border border-white/5 rounded-xl p-3 text-xs text-cream/90">
               <span className="text-xs font-bold text-amber block mb-1">
                 {duration === 'annual' ? 'Premium Annual Protection Plan' : 'Complete Protection (One-Time)'}
@@ -487,27 +528,29 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
             </div>
           ) : null}
 
-          <div>
-            <span className="text-sm font-semibold text-cream block mb-2">BHK Size</span>
-            <div className="grid grid-cols-4 gap-2">
-              {['1BHK', '2BHK', '3BHK', '4BHK+'].map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => setBhkSize(size)}
-                  className={`py-2 rounded-xl text-xs font-bold transition-all border ${
-                    bhkSize === size
-                      ? 'bg-amber text-forest border-amber shadow-md'
-                      : 'bg-white/5 text-cream/80 border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
+          {propertyType === 'residential' && (
+            <div>
+              <span className="text-sm font-semibold text-cream block mb-2">BHK Size</span>
+              <div className="grid grid-cols-4 gap-2">
+                {['1BHK', '2BHK', '3BHK', '4BHK+'].map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setBhkSize(size)}
+                    className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                      bhkSize === size
+                        ? 'bg-amber text-forest border-amber shadow-md'
+                        : 'bg-white/5 text-cream/80 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {duration !== 'annual' && service !== 'all' && (
+          {propertyType === 'residential' && duration !== 'annual' && service !== 'all' && (
             <div className="flex items-center justify-between bg-forest/30 border border-white/5 rounded-xl p-3">
               <div>
                 <span className="text-xs font-bold text-cream">Extra Rooms</span>
@@ -537,7 +580,18 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
 
           {/* Dynamic Summary Panel */}
           <div className="bg-forest/65 rounded-xl p-4 border border-white/10 space-y-2 text-xs text-cream/90">
-            {duration === 'annual' || service === 'all' ? (
+            {propertyType === 'commercial' ? (
+              <>
+                <div className="flex justify-between font-bold text-sm text-cream">
+                  <span>Service Rate:</span>
+                  <span className="text-amber font-semibold">TBD Post-Inspection</span>
+                </div>
+                <div className="border-t border-white/10 pt-2 flex justify-between font-bold text-base text-amber">
+                  <span>Inspection Fee:</span>
+                  <span className="text-eco font-bold">FREE</span>
+                </div>
+              </>
+            ) : duration === 'annual' || service === 'all' ? (
               <>
                 <div className="flex justify-between font-bold text-sm text-cream">
                   <span>Package Rate ({duration === 'annual' ? 'Annual' : 'One-Time'}):</span>
@@ -679,6 +733,38 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                   onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
                   className="h-10 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
                 />
+              </label>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10 pt-4 mt-2">
+            <span className="text-xs font-bold text-cream/70 block mb-3 uppercase tracking-wider">Preferred Service Schedule</span>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="grid gap-1 text-xs font-semibold text-cream col-span-2 sm:col-span-1">
+                <span>Select Date</span>
+                <input
+                  type="date"
+                  required
+                  min={getTomorrowString()}
+                  value={preferredDate}
+                  onChange={(e) => setPreferredDate(e.target.value)}
+                  className="h-10 rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/40 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer text-xs"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-cream col-span-2 sm:col-span-1">
+                <span>Preferred Time Slot</span>
+                <select
+                  value={preferredTime}
+                  onChange={(e) => setPreferredTime(e.target.value)}
+                  className="h-10 rounded-xl bg-white/10 px-2 text-cream ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber cursor-pointer text-xs"
+                  style={{ colorScheme: 'dark' }}
+                >
+                  <option className="bg-forest text-cream" value="09:00 AM - 12:00 PM">09:00 AM - 12:00 PM (Morning)</option>
+                  <option className="bg-forest text-cream" value="12:00 PM - 03:00 PM">12:00 PM - 03:00 PM (Afternoon)</option>
+                  <option className="bg-forest text-cream" value="03:00 PM - 06:00 PM">03:00 PM - 06:00 PM (Late Afternoon)</option>
+                  <option className="bg-forest text-cream" value="06:00 PM - 09:00 PM">06:00 PM - 09:00 PM (Evening)</option>
+                </select>
               </label>
             </div>
           </div>

@@ -58,9 +58,9 @@ export default function SalesNotifier() {
     showTimeout = setTimeout(() => {
       triggerCycle()
 
-      // Subsequently, show one notification every 2 to 3 minutes (120,000ms to 180,000ms)
+      // Subsequently, show one notification every 30 seconds (30000ms)
       const setupNextCycle = () => {
-        const randomDelay = Math.floor(Math.random() * (180000 - 120000 + 1)) + 120000
+        const randomDelay = 30000
         cycleInterval = setTimeout(() => {
           triggerCycle()
           setupNextCycle()

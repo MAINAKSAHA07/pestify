@@ -574,7 +574,14 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h5 className="font-bold text-forest text-sm">{item.service}</h5>
-                      <p className="text-xs text-ink/65 mt-0.5">Size: {item.bhkSize} {item.extraRooms > 0 && `(+ ${item.extraRooms} extra room${item.extraRooms > 1 ? 's' : ''})`}</p>
+                      <p className="text-xs text-ink/65 mt-0.5 flex flex-wrap gap-1.5 items-center">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${item.propertyType === 'commercial' ? 'bg-amber/10 border border-amber/20 text-amber-700' : 'bg-green/10 border border-green/20 text-green-700'}`}>
+                          {item.propertyType || 'residential'}
+                        </span>
+                        {(!item.propertyType || item.propertyType === 'residential') && (
+                          <span>• Size: {item.bhkSize} {item.extraRooms > 0 && `(+ ${item.extraRooms} extra room${item.extraRooms > 1 ? 's' : ''})`}</span>
+                        )}
+                      </p>
                     </div>
                     {getStatusBadge(item.status)}
                   </div>
@@ -585,6 +592,9 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
                     <div><span className="text-ink/45">Location:</span> {item.location}</div>
                     <div><span className="text-ink/45">Price Paid:</span> <span className="font-semibold text-forest">₹{item.price?.toLocaleString('en-IN')}</span></div>
                     <div><span className="text-ink/45">Date Booked:</span> {new Date(item.created).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                    {item.preferredDate && (
+                      <div><span className="text-ink/45">Preferred Slot:</span> <span className="font-semibold text-forest">{item.preferredDate} {item.preferredTime && `(${item.preferredTime})`}</span></div>
+                    )}
                   </div>
 
                   {item.assignedName && (

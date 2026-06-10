@@ -52,6 +52,7 @@ export default function BackendDashboard() {
   const [editExtraRooms, setEditExtraRooms] = useState(0)
   const [editPrice, setEditPrice] = useState(0)
   const [editPaymentMethod, setEditPaymentMethod] = useState('razorpay')
+  const [editPropertyType, setEditPropertyType] = useState('residential')
   const [editStatus, setEditStatus] = useState('pending')
   const [editPerformedAt, setEditPerformedAt] = useState('')
   const [editAssignedName, setEditAssignedName] = useState('')
@@ -84,7 +85,9 @@ export default function BackendDashboard() {
   const [manualExtraRooms, setManualExtraRooms] = useState(0)
   const [manualPrice, setManualPrice] = useState(0)
   const [manualPaymentMethod, setManualPaymentMethod] = useState('cash')
+  const [manualPropertyType, setManualPropertyType] = useState('residential')
   const [manualStatus, setManualStatus] = useState('pending')
+  const [manualPerformedAt, setManualPerformedAt] = useState('')
 
   // Dynamic Services & Rates states
   const [globalServices, setGlobalServices] = useState([])
@@ -313,6 +316,7 @@ export default function BackendDashboard() {
     setEditExtraRooms(booking.extraRooms || 0)
     setEditPrice(booking.price || 0)
     setEditPaymentMethod(booking.paymentMethod || 'razorpay')
+    setEditPropertyType(booking.propertyType || 'residential')
     setEditStatus(booking.status || 'pending')
     setEditPerformedAt(toDatetimeLocal(booking.performedAt))
     setEditAssignedName(booking.assignedName || '')
@@ -360,14 +364,15 @@ export default function BackendDashboard() {
         phone: editPhone,
         location: editLocation,
         service: labels,
-        bhkSize: editBhkSize,
-        extraRooms: Number(editExtraRooms) || 0,
+        bhkSize: editPropertyType === 'commercial' ? 'Commercial' : editBhkSize,
+        extraRooms: editPropertyType === 'commercial' ? 0 : (Number(editExtraRooms) || 0),
         price: Number(editPrice) || 0,
         paymentMethod: editPaymentMethod,
         status: editStatus,
         performedAt: editPerformedAt ? new Date(editPerformedAt).toISOString() : null,
         assignedName: editAssignedName,
         assignedPhone: editAssignedPhone,
+        propertyType: editPropertyType,
       })
       setBookings(prev => prev.map(b => b.id === editingBooking.id ? updated : b))
       setEditingBooking(null)
@@ -582,13 +587,14 @@ export default function BackendDashboard() {
         phone: manualPhone.trim(),
         location: serializedAddress,
         service: labels,
-        bhkSize: manualBhkSize,
-        extraRooms: Number(manualExtraRooms) || 0,
+        bhkSize: manualPropertyType === 'commercial' ? 'Commercial' : manualBhkSize,
+        extraRooms: manualPropertyType === 'commercial' ? 0 : (Number(manualExtraRooms) || 0),
         price: Number(manualPrice) || 0,
         paymentMethod: manualPaymentMethod,
         status: manualStatus,
         paymentId: 'OFFLINE-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-        performedAt: manualStatus === 'completed' ? new Date().toISOString() : null,
+        performedAt: manualPerformedAt ? new Date(manualPerformedAt).toISOString() : (manualStatus === 'completed' ? new Date().toISOString() : null),
+        propertyType: manualPropertyType,
       }
 
       const created = await pb.collection('bookings').create(data)
@@ -610,7 +616,9 @@ export default function BackendDashboard() {
       setManualExtraRooms(0)
       setManualPrice(0)
       setManualPaymentMethod('cash')
+      setManualPropertyType('residential')
       setManualStatus('pending')
+      setManualPerformedAt('')
     } catch (err) {
       console.error('Failed to create manual booking:', err)
       setError(err?.message || 'Failed to create manual booking.')
@@ -1170,8 +1178,13 @@ export default function BackendDashboard() {
                           {/* Service Details */}
                           <td className="py-4 px-4 whitespace-nowrap">
                             <div className="font-semibold text-forest">{b.service}</div>
-                            <div className="text-[10px] text-ink/50 mt-0.5">
-                              Size: {b.bhkSize} {b.extraRooms > 0 && `(+${b.extraRooms} rooms)`}
+                            <div className="text-[10px] text-ink/50 mt-0.5 flex flex-wrap gap-1 items-center">
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${b.propertyType === 'commercial' ? 'bg-amber/10 border border-amber/20 text-amber-700' : 'bg-green/10 border border-green/20 text-green-700'}`}>
+                                {b.propertyType || 'residential'}
+                              </span>
+                              {(!b.propertyType || b.propertyType === 'residential') && (
+                                <span>• Size: {b.bhkSize} {b.extraRooms > 0 && `(+${b.extraRooms} rooms)`}</span>
+                              )}
                             </div>
                             {b.assignedName && (
                               <div className="text-[10px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
@@ -1735,32 +1748,48 @@ export default function BackendDashboard() {
                 </div>
               </div>
 
-              {/* BHK, Extra Rooms, Price, Status */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {/* Property Type, BHK, Extra Rooms, Price, Status */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
-                  <span>BHK Size</span>
+                  <span>Property Type</span>
                   <select
-                    value={editBhkSize}
-                    onChange={(e) => setEditBhkSize(e.target.value)}
+                    value={editPropertyType}
+                    onChange={(e) => setEditPropertyType(e.target.value)}
                     className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
                   >
-                    <option value="1BHK">1 BHK</option>
-                    <option value="2BHK">2 BHK</option>
-                    <option value="3BHK">3 BHK</option>
-                    <option value="4BHK+">4 BHK+</option>
+                    <option value="residential">Residential</option>
+                    <option value="commercial">Commercial</option>
                   </select>
                 </label>
 
-                <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
-                  <span>Extra Rooms</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editExtraRooms}
-                    onChange={(e) => setEditExtraRooms(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
-                  />
-                </label>
+                {editPropertyType === 'residential' && (
+                  <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                    <span>BHK Size</span>
+                    <select
+                      value={editBhkSize}
+                      onChange={(e) => setEditBhkSize(e.target.value)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
+                    >
+                      <option value="1BHK">1 BHK</option>
+                      <option value="2BHK">2 BHK</option>
+                      <option value="3BHK">3 BHK</option>
+                      <option value="4BHK+">4 BHK+</option>
+                    </select>
+                  </label>
+                )}
+
+                {editPropertyType === 'residential' && (
+                  <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                    <span>Extra Rooms</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editExtraRooms}
+                      onChange={(e) => setEditExtraRooms(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                )}
 
                 <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
                   <span>Price (₹)</span>
@@ -1955,29 +1984,45 @@ export default function BackendDashboard() {
                 </div>
 
                 <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
-                  <span>BHK Size</span>
+                  <span>Property Type</span>
                   <select
-                    value={manualBhkSize}
-                    onChange={(e) => setManualBhkSize(e.target.value)}
+                    value={manualPropertyType}
+                    onChange={(e) => setManualPropertyType(e.target.value)}
                     className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
                   >
-                    <option value="1BHK">1 BHK</option>
-                    <option value="2BHK">2 BHK</option>
-                    <option value="3BHK">3 BHK</option>
-                    <option value="4BHK+">4 BHK+</option>
+                    <option value="residential">Residential</option>
+                    <option value="commercial">Commercial</option>
                   </select>
                 </label>
 
-                <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
-                  <span>Extra Rooms</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={manualExtraRooms}
-                    onChange={(e) => setManualExtraRooms(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
-                  />
-                </label>
+                {manualPropertyType === 'residential' && (
+                  <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                    <span>BHK Size</span>
+                    <select
+                      value={manualBhkSize}
+                      onChange={(e) => setManualBhkSize(e.target.value)}
+                      className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
+                    >
+                      <option value="1BHK">1 BHK</option>
+                      <option value="2BHK">2 BHK</option>
+                      <option value="3BHK">3 BHK</option>
+                      <option value="4BHK+">4 BHK+</option>
+                    </select>
+                  </label>
+                )}
+
+                {manualPropertyType === 'residential' && (
+                  <label className="grid gap-1 text-xs font-semibold text-forest col-span-1">
+                    <span>Extra Rooms</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={manualExtraRooms}
+                      onChange={(e) => setManualExtraRooms(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                    />
+                  </label>
+                )}
               </div>
 
               {/* Payment Details */}
@@ -2012,7 +2057,16 @@ export default function BackendDashboard() {
                   <span>Workflow Status</span>
                   <select
                     value={manualStatus}
-                    onChange={(e) => setManualStatus(e.target.value)}
+                    onChange={(e) => {
+                      const newStatus = e.target.value
+                      setManualStatus(newStatus)
+                      if (newStatus === 'completed' && !manualPerformedAt) {
+                        const now = new Date()
+                        const offset = now.getTimezoneOffset()
+                        const localNow = new Date(now.getTime() - offset * 60 * 1000)
+                        setManualPerformedAt(localNow.toISOString().substring(0, 16))
+                      }
+                    }}
                     className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
                   >
                     <option value="pending">Pending</option>
@@ -2021,6 +2075,19 @@ export default function BackendDashboard() {
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
                   </select>
+                </label>
+              </div>
+
+              {/* Performed At DateTime Picker */}
+              <div className="grid grid-cols-1 gap-4">
+                <label className="grid gap-1 text-xs font-semibold text-forest">
+                  <span>Performed Date & Time (For completed bookings)</span>
+                  <input
+                    type="datetime-local"
+                    value={manualPerformedAt}
+                    onChange={(e) => setManualPerformedAt(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer text-xs"
+                  />
                 </label>
               </div>
 
