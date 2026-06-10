@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
 
 const NAMES = [
-  'Amit S.', 'Sneha K.', 'Rajesh M.', 'Pooja R.', 
-  'Vikram G.', 'Priya D.', 'Rohit P.', 'Ananya V.', 
-  'Sanjay T.', 'Neha S.', 'Rahul N.', 'Kiran B.', 
+  'Amit S.', 'Sneha K.', 'Rajesh M.', 'Pooja R.',
+  'Vikram G.', 'Priya D.', 'Rohit P.', 'Ananya V.',
+  'Sanjay T.', 'Neha S.', 'Rahul N.', 'Kiran B.',
   'Aditya P.', 'Divya G.', 'Manish R.', 'Kavita K.'
 ]
 
 const LOCATIONS = [
-  'Thane', 'Dombivli', 'Kalyan', 'Vashi', 
-  'Nerul', 'Panvel', 'Andheri', 'Borivali', 
-  'Dadar', 'Powai', 'Ghatkopar', 'Mulund', 
+  'Thane', 'Dombivli', 'Kalyan', 'Vashi',
+  'Nerul', 'Panvel', 'Andheri', 'Borivali',
+  'Dadar', 'Powai', 'Ghatkopar', 'Mulund',
   'Airoli', 'Kharghar', 'Belapur', 'Chembur'
 ]
 
@@ -23,7 +23,7 @@ const SERVICES = [
   'All-in-One Protection (All Pests)'
 ]
 
-const TIMES = ['3 mins ago', '6 mins ago', '9 mins ago', '12 mins ago', 'just now']
+const TIMES = ['3 hrs ago', '6 mins ago', '9 hrs ago', '12 mins ago', 'just now']
 
 export default function SalesNotifier() {
   const [notification, setNotification] = useState(null)
@@ -57,7 +57,7 @@ export default function SalesNotifier() {
     // First popup appears 15 seconds after page loads
     showTimeout = setTimeout(() => {
       triggerCycle()
-      
+
       // Subsequently, show one notification every 2 to 3 minutes (120,000ms to 180,000ms)
       const setupNextCycle = () => {
         const randomDelay = Math.floor(Math.random() * (180000 - 120000 + 1)) + 120000
