@@ -112,7 +112,9 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
   const calculatePrice = () => {
     if (duration === 'annual') {
       const amcBase = currentRate?.amcBhk?.[bhkSize] || currentRate?.bhk?.[bhkSize] || 8000
-      return { base: amcBase, extraRoomCost: 0, subtotal: amcBase, discount: 0, total: amcBase }
+      const discount = Math.round(amcBase * 0.20) // 20% OFF prepaid discount
+      const total = amcBase - discount
+      return { base: amcBase, extraRoomCost: 0, subtotal: amcBase, discount, total }
     }
     const base = currentRate?.bhk?.[bhkSize] || 0
     const extraRoomCost = extraRooms * (currentRate?.extraRoom || 0)
@@ -342,7 +344,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
     const isInspection = successData.paymentMethod === 'home_inspection'
 
     return (
-      <div className="rounded-2xl bg-white/10 p-6 ring-1 ring-white/15 text-center reveal is-in">
+      <div className="rounded-2xl bg-white/10 p-4 sm:p-6 ring-1 ring-white/15 text-center reveal is-in">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-eco/20 text-3xl mb-4 text-eco animate-bounce">
           ✓
         </div>
@@ -388,7 +390,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
   }
 
   return (
-    <div className="rounded-2xl bg-white/10 p-6 ring-1 ring-white/15 reveal is-in">
+    <div className="rounded-2xl bg-white/10 p-4 sm:p-6 ring-1 ring-white/15 reveal is-in">
       {/* Wizard Progress Header */}
       <div className="flex items-center justify-between text-xs font-semibold text-cream/60 mb-6 border-b border-white/10 pb-4">
         <span className={step === 1 ? 'text-amber font-bold' : ''}>1. Service</span>

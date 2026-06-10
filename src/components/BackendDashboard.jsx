@@ -14,6 +14,15 @@ const displayAddress = (addressStr) => {
   return addressStr
 }
 
+const toDatetimeLocal = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return ''
+  const offset = date.getTimezoneOffset()
+  const localDate = new Date(date.getTime() - offset * 60 * 1000)
+  return localDate.toISOString().substring(0, 16)
+}
+
 export default function BackendDashboard() {
   const [currentUser, setCurrentUser] = useState(pb.authStore.model)
   const [bookings, setBookings] = useState([])
@@ -44,6 +53,9 @@ export default function BackendDashboard() {
   const [editPrice, setEditPrice] = useState(0)
   const [editPaymentMethod, setEditPaymentMethod] = useState('razorpay')
   const [editStatus, setEditStatus] = useState('pending')
+  const [editPerformedAt, setEditPerformedAt] = useState('')
+  const [editAssignedName, setEditAssignedName] = useState('')
+  const [editAssignedPhone, setEditAssignedPhone] = useState('')
 
   // Active Panel Tab: 'bookings' or 'users'
   const [activeTab, setActiveTab] = useState('bookings')
@@ -276,7 +288,14 @@ export default function BackendDashboard() {
     setError('')
     setSuccess('')
     try {
-      const updated = await pb.collection('bookings').update(bookingId, { status: newStatus })
+      const updateData = { status: newStatus }
+      if (newStatus === 'completed') {
+        const booking = bookings.find(b => b.id === bookingId)
+        if (booking && !booking.performedAt) {
+          updateData.performedAt = new Date().toISOString()
+        }
+      }
+      const updated = await pb.collection('bookings').update(bookingId, updateData)
       setBookings(prev => prev.map(b => b.id === bookingId ? updated : b))
       showToast('Status updated successfully!')
     } catch (err) {
@@ -295,6 +314,9 @@ export default function BackendDashboard() {
     setEditPrice(booking.price || 0)
     setEditPaymentMethod(booking.paymentMethod || 'razorpay')
     setEditStatus(booking.status || 'pending')
+    setEditPerformedAt(toDatetimeLocal(booking.performedAt))
+    setEditAssignedName(booking.assignedName || '')
+    setEditAssignedPhone(booking.assignedPhone || '')
     
     // Parse selected services from booking.service
     const servicesList = booking.service ? booking.service.split(',').map(s => s.trim().toLowerCase()) : []
@@ -343,6 +365,9 @@ export default function BackendDashboard() {
         price: Number(editPrice) || 0,
         paymentMethod: editPaymentMethod,
         status: editStatus,
+        performedAt: editPerformedAt ? new Date(editPerformedAt).toISOString() : null,
+        assignedName: editAssignedName,
+        assignedPhone: editAssignedPhone,
       })
       setBookings(prev => prev.map(b => b.id === editingBooking.id ? updated : b))
       setEditingBooking(null)
@@ -563,6 +588,7 @@ export default function BackendDashboard() {
         paymentMethod: manualPaymentMethod,
         status: manualStatus,
         paymentId: 'OFFLINE-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        performedAt: manualStatus === 'completed' ? new Date().toISOString() : null,
       }
 
       const created = await pb.collection('bookings').create(data)
@@ -805,7 +831,9 @@ export default function BackendDashboard() {
       (b.phone && b.phone.includes(searchQuery)) ||
       (b.location && b.location.toLowerCase().includes(searchQuery.toLowerCase()))
 
-    const matchesStatus = statusFilter === 'All' || String(b.status).toLowerCase() === statusFilter.toLowerCase()
+    const matchesStatus =
+      statusFilter === 'All' ||
+      String(b.status).toLowerCase().replace('_', ' ') === statusFilter.toLowerCase().replace('_', ' ')
 
     return matchesSearch && matchesStatus
   })
@@ -816,6 +844,7 @@ export default function BackendDashboard() {
     revenue: bookings.reduce((sum, b) => sum + (Number(b.price) || 0), 0),
     pending: bookings.filter(b => ['pending', 'unpaid', ''].includes(String(b.status).toLowerCase())).length,
     scheduled: bookings.filter(b => String(b.status).toLowerCase() === 'scheduled').length,
+    inProgress: bookings.filter(b => ['in_progress', 'ongoing'].includes(String(b.status).toLowerCase())).length,
     completed: bookings.filter(b => String(b.status).toLowerCase() === 'completed').length,
   }
 
@@ -1041,8 +1070,10 @@ export default function BackendDashboard() {
                 <span className="text-2xl font-bold text-urgent mt-1">{stats.pending}</span>
               </div>
               <div className="bg-white rounded-xl border border-black/5 p-4 flex flex-col">
-                <span className="text-[10px] uppercase font-bold text-ink/40">Scheduled Services</span>
-                <span className="text-2xl font-bold text-amber mt-1">{stats.scheduled}</span>
+                <span className="text-[10px] uppercase font-bold text-ink/40">Scheduled / In-Progress</span>
+                <span className="text-2xl font-bold text-amber mt-1">
+                  {stats.scheduled} <span className="text-xs text-ink/40 font-normal">/ {stats.inProgress}</span>
+                </span>
               </div>
               <div className="bg-white rounded-xl border border-black/5 p-4 flex flex-col col-span-2 md:col-span-1">
                 <span className="text-[10px] uppercase font-bold text-ink/40">Completed Audits</span>
@@ -1065,7 +1096,7 @@ export default function BackendDashboard() {
               {/* Status pills selector & Manual booking creator */}
               <div className="flex flex-wrap gap-3 items-center">
                 <div className="flex flex-wrap gap-1.5">
-                  {['All', 'Paid', 'Scheduled', 'Completed', 'Cancelled'].map((status) => (
+                  {['All', 'Pending', 'Paid', 'Scheduled', 'In Progress', 'Completed', 'Cancelled'].map((status) => (
                     <button
                       key={status}
                       onClick={() => setStatusFilter(status)}
@@ -1142,6 +1173,11 @@ export default function BackendDashboard() {
                             <div className="text-[10px] text-ink/50 mt-0.5">
                               Size: {b.bhkSize} {b.extraRooms > 0 && `(+${b.extraRooms} rooms)`}
                             </div>
+                            {b.assignedName && (
+                              <div className="text-[10px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
+                                <span>🧑‍🔧</span> {b.assignedName} {b.assignedPhone && `(${b.assignedPhone})`}
+                              </div>
+                            )}
                           </td>
 
                           {/* Price */}
@@ -1165,6 +1201,7 @@ export default function BackendDashboard() {
                               <option value="pending">Pending</option>
                               <option value="paid">Paid (Unscheduled)</option>
                               <option value="scheduled">Scheduled</option>
+                              <option value="in_progress">In Progress</option>
                               <option value="completed">Completed</option>
                               <option value="cancelled">Cancelled</option>
                             </select>
@@ -1740,15 +1777,63 @@ export default function BackendDashboard() {
                   <span>Status</span>
                   <select
                     value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value)}
+                    onChange={(e) => {
+                      const newStatus = e.target.value
+                      setEditStatus(newStatus)
+                      if (newStatus === 'completed' && !editPerformedAt) {
+                        const now = new Date()
+                        const offset = now.getTimezoneOffset()
+                        const localNow = new Date(now.getTime() - offset * 60 * 1000)
+                        setEditPerformedAt(localNow.toISOString().substring(0, 16))
+                      }
+                    }}
                     className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
                   >
                     <option value="pending">Pending</option>
                     <option value="paid">Paid</option>
                     <option value="scheduled">Scheduled</option>
+                    <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
+                </label>
+              </div>
+
+              {/* Performed At DateTime Picker */}
+              <div className="grid grid-cols-1 gap-4">
+                <label className="grid gap-1 text-xs font-semibold text-forest">
+                  <span>Performed Date & Time (For completed bookings)</span>
+                  <input
+                    type="datetime-local"
+                    value={editPerformedAt}
+                    onChange={(e) => setEditPerformedAt(e.target.value)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer text-xs"
+                  />
+                </label>
+              </div>
+
+              {/* Assigned Technician details */}
+              <div className="grid grid-cols-2 gap-4">
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-2 sm:col-span-1">
+                  <span>Assigned Technician Name</span>
+                  <input
+                    type="text"
+                    value={editAssignedName}
+                    onChange={(e) => setEditAssignedName(e.target.value)}
+                    placeholder="e.g. John Doe"
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-xs"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-xs font-semibold text-forest col-span-2 sm:col-span-1">
+                  <span>Technician Contact Phone</span>
+                  <input
+                    type="tel"
+                    value={editAssignedPhone}
+                    onChange={(e) => setEditAssignedPhone(e.target.value)}
+                    placeholder="e.g. 9876543210"
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-xs"
+                  />
                 </label>
               </div>
 
@@ -1933,6 +2018,7 @@ export default function BackendDashboard() {
                     <option value="pending">Pending</option>
                     <option value="paid">Paid</option>
                     <option value="scheduled">Scheduled</option>
+                    <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
                   </select>
                 </label>

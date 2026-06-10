@@ -10,6 +10,7 @@ import LocationModal from './components/LocationModal'
 import ScrollRevealText from './components/ScrollRevealText'
 import ProfileModal from './components/ProfileModal'
 import BackendDashboard from './components/BackendDashboard'
+import SalesNotifier from './components/SalesNotifier'
 import {
   ANNOUNCEMENT,
   NAV_LINKS,
@@ -982,7 +983,7 @@ function App() {
       </main>
 
       {/* 16. Footer */}
-      <footer className="bg-forest text-cream">
+      <footer className="bg-forest text-cream pb-24 lg:pb-0">
         <div className="containerX grid gap-8 py-12 md:grid-cols-4">
           <div className="md:col-span-2">
             <Logo size="lg" />
@@ -1054,6 +1055,29 @@ function App() {
         currentUser={currentUser}
         onUserUpdate={(updatedUser) => setCurrentUser(updatedUser)}
       />
+
+      {/* Social Proof Sales Notifications */}
+      <SalesNotifier />
+
+      {/* Sticky Mobile/Tablet CTA */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/5 px-4 py-4 flex gap-3 lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[calc(16px+env(safe-area-inset-bottom))]">
+        <a
+          href={CONTACT.waHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 h-[52px] rounded-xl bg-cream/30 hover:bg-cream/50 border border-black/5 flex items-center justify-center gap-2 text-xs font-bold text-forest transition"
+        >
+          <span className="text-sm">💬</span>
+          Talk to Expert
+        </a>
+        <a
+          href="#book"
+          className="flex-1 h-[52px] rounded-xl bg-forest hover:bg-forest/95 flex items-center justify-center gap-2 text-xs font-bold text-white transition shadow-sm"
+        >
+          <span className="text-sm">📅</span>
+          Book Now
+        </a>
+      </div>
     </div>
   )
 }

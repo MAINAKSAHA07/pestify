@@ -76,6 +76,118 @@ export function formatAddress(parsed) {
   return parts.join(', ') + (pincode ? ` - ${pincode}` : '')
 }
 
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  })
+}
+
+const renderBookingTimeline = (item) => {
+  const isInspection = item.paymentMethod === 'home_inspection' || String(item.status).toLowerCase().includes('inspection');
+  const status = String(item.status).toLowerCase();
+  
+  // Define steps
+  let steps = [];
+  if (isInspection) {
+    steps = [
+      { key: 'placed', label: 'Inspection Requested', subtext: 'We received your request.', isDone: true, date: item.created },
+      { key: 'confirmed', label: 'Request Confirmed', subtext: 'Our team confirmed your request.', isDone: !['pending', 'inspection required'].includes(status) },
+      { key: 'scheduled', label: 'Inspector Scheduled', subtext: 'Inspector assigned & scheduled.', isDone: ['scheduled', 'in_progress', 'completed'].includes(status) },
+      { key: 'in_progress', label: 'On-site Inspection', subtext: 'Inspector is performing check.', isDone: ['in_progress', 'completed'].includes(status) },
+      { key: 'completed', label: 'Inspection Completed', subtext: 'Home inspection done.', isDone: status === 'completed', date: item.performedAt },
+    ];
+  } else {
+    steps = [
+      { key: 'placed', label: 'Booking Placed', subtext: 'Booking received successfully.', isDone: true, date: item.created },
+      { key: 'confirmed', label: 'Payment Confirmed', subtext: 'Payment verified successfully.', isDone: !['pending'].includes(status) },
+      { key: 'scheduled', label: 'Technician Scheduled', subtext: 'Technician assigned & scheduled.', isDone: ['scheduled', 'in_progress', 'completed'].includes(status) },
+      { key: 'in_progress', label: 'Service In Progress', subtext: 'Technician is performing service.', isDone: ['in_progress', 'completed'].includes(status) },
+      { key: 'completed', label: 'Service Completed', subtext: 'Pest treatment completed.', isDone: status === 'completed', date: item.performedAt },
+    ];
+  }
+
+  // Handle cancelled state override
+  if (status === 'cancelled') {
+    return (
+      <div className="mt-4 p-3 bg-red-50 border border-red-200/40 rounded-xl flex items-center gap-3 text-xs text-red-600">
+        <span className="text-base">❌</span>
+        <div>
+          <div className="font-bold">Booking Cancelled</div>
+          <div className="text-[10px] text-red-500 mt-0.5">This service booking was cancelled. Feel free to book again.</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 border-t border-black/5 pt-3">
+      <h6 className="text-[10px] font-bold uppercase tracking-wider text-forest/70 mb-3">Live Tracking</h6>
+      <div className="relative pl-5 ml-1.5 space-y-4 border-l border-black/10">
+        {steps.map((step, idx) => {
+          const isCompletedStep = step.isDone;
+          const currentActiveIdx = steps.findIndex(s => !s.isDone);
+          const isCurrentActive = currentActiveIdx === idx || (currentActiveIdx === -1 && idx === steps.length - 1);
+
+          return (
+            <div key={idx} className="relative">
+              <div className={`absolute -left-[27px] top-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 transition ${
+                isCompletedStep 
+                  ? 'bg-forest border-forest text-white' 
+                  : isCurrentActive
+                    ? 'bg-amber-450 border-amber-450 text-white animate-pulse'
+                    : 'bg-white border-black/15'
+              }`}
+              style={isCurrentActive && !isCompletedStep ? { backgroundColor: '#d97706', borderColor: '#d97706' } : {}}>
+                {isCompletedStep && (
+                  <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-start gap-2">
+                  <div className={`text-[11px] font-bold transition-colors ${
+                    isCompletedStep 
+                      ? 'text-forest' 
+                      : isCurrentActive 
+                        ? 'text-amber-600' 
+                        : 'text-ink/30'
+                  }`}>
+                    {step.label}
+                  </div>
+                  {step.date && isCompletedStep && (
+                    <div className="text-[9px] font-mono text-ink/50 bg-black/[0.04] px-1 py-0.5 rounded leading-none shrink-0">
+                      {formatDateTime(step.date)}
+                    </div>
+                  )}
+                </div>
+                <div className={`text-[10px] leading-relaxed transition-colors ${
+                  isCompletedStep 
+                    ? 'text-ink/70' 
+                    : isCurrentActive 
+                      ? 'text-ink/80 font-medium' 
+                      : 'text-ink/30'
+                }`}>
+                  {step.subtext}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdate }) {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(false)
@@ -244,8 +356,13 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
         return <span className="inline-flex items-center rounded-md bg-green/10 px-2.5 py-0.5 text-xs font-semibold text-green border border-green/20">Paid</span>
       case 'scheduled':
         return <span className="inline-flex items-center rounded-md bg-amber/10 px-2.5 py-0.5 text-xs font-semibold text-amber border border-amber/20">Scheduled</span>
+      case 'in_progress':
+      case 'ongoing':
+        return <span className="inline-flex items-center rounded-md bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-600 border border-blue-500/20">In Progress</span>
       case 'completed':
         return <span className="inline-flex items-center rounded-md bg-forest/10 px-2.5 py-0.5 text-xs font-semibold text-forest border border-forest/20">Completed</span>
+      case 'inspection required':
+        return <span className="inline-flex items-center rounded-md bg-purple-500/10 px-2.5 py-0.5 text-xs font-semibold text-purple-600 border border-purple-500/20">Inspection Required</span>
       default:
         return <span className="inline-flex items-center rounded-md bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-ink/70 border border-black/10">{status || 'Pending'}</span>
     }
@@ -469,6 +586,23 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
                     <div><span className="text-ink/45">Price Paid:</span> <span className="font-semibold text-forest">₹{item.price?.toLocaleString('en-IN')}</span></div>
                     <div><span className="text-ink/45">Date Booked:</span> {new Date(item.created).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                   </div>
+
+                  {item.assignedName && (
+                    <div className="mt-3 bg-forest/5 border border-forest/10 rounded-xl p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                      <div className="text-xl">🧑‍🔧</div>
+                      <div>
+                        <div className="text-[10px] font-bold text-forest uppercase tracking-wider">Assigned Technician</div>
+                        <div className="text-xs font-bold text-ink mt-0.5">{item.assignedName}</div>
+                        {item.assignedPhone && (
+                          <a href={`tel:${item.assignedPhone}`} className="text-[11px] text-forest hover:underline font-semibold block mt-0.5">
+                            📞 {item.assignedPhone}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {renderBookingTimeline(item)}
                 </div>
               ))
             ) : (
