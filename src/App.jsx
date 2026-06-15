@@ -11,6 +11,7 @@ import ScrollRevealText from './components/ScrollRevealText'
 import ProfileModal from './components/ProfileModal'
 import BackendDashboard from './components/BackendDashboard'
 import SalesNotifier from './components/SalesNotifier'
+import IosInstallPrompt from './components/IosInstallPrompt'
 import {
   ANNOUNCEMENT,
   NAV_LINKS,
@@ -67,11 +68,283 @@ const CREDENTIAL_LOGOS = [
   { src: '/trusted-logo-webp/IMG_7024.webp', alt: 'Swachh Bharat partner' }
 ]
 
+function PrivacyPolicy() {
+  return (
+    <article className="containerX max-w-4xl py-12 md:py-16 text-ink">
+      <header className="mb-10 text-center">
+        <span className="pillX bg-forest/10 text-forest border-forest/20 uppercase tracking-wider text-[11px] font-bold">
+          Legal Policy
+        </span>
+        <h1 className="font-serif text-3xl font-bold text-forest mt-3 md:text-5xl">
+          Privacy Policy
+        </h1>
+        <p className="mt-2 text-sm text-ink/60">
+          Last Updated: June 14, 2026
+        </p>
+      </header>
+
+      <div className="space-y-8 bg-white/60 p-6 md:p-10 rounded-2xl border border-black/5 backdrop-blur-sm shadow-premium">
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">1. Introduction</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            Welcome to Pestyfi Eco Solutions (<strong>"Pestyfi"</strong>, <strong>"we"</strong>, <strong>"us"</strong>, or <strong>"our"</strong>), launched by Hindustan Pest Control (with over 30 years of industry excellence). We respect your privacy and are committed to protecting the personal data you share with us.
+          </p>
+          <p className="text-sm leading-relaxed text-ink/85">
+            This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website <a href="https://pestyfi.com" className="text-eco hover:underline font-semibold">https://pestyfi.com</a> (including associated domains like pestyfi.in) and use our pest control booking services. Please read this privacy policy carefully. If you do not agree with the terms of this privacy policy, please do not access the site.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">2. Information We Collect</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            We may collect information about you in a variety of ways. The information we may collect on the Site includes:
+          </p>
+          <ul className="list-disc pl-5 space-y-2 text-sm text-ink/85">
+            <li>
+              <strong>Personal Data:</strong> Personally identifiable information, such as your name, shipping/service address, email address, and telephone number, that you voluntarily give to us when you register on our site or book a service.
+            </li>
+            <li>
+              <strong>Booking and Location Data:</strong> Information regarding the location of the service, preferred service date, service rates, payment choices, and pin codes to determine serviceability.
+            </li>
+            <li>
+              <strong>Usage Data:</strong> Information our servers automatically collect when you access the Site, such as your IP address, your browser type, your operating system, your access times, and the pages you have viewed directly before and after accessing the Site.
+            </li>
+          </ul>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">3. How We Use Your Information</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            Having accurate information about you permits us to provide you with a smooth, efficient, and customized experience. Specifically, we may use information collected about you via the Site to:
+          </p>
+          <ul className="list-disc pl-5 space-y-2 text-sm text-ink/85">
+            <li>Create and manage your user account and schedule pest control bookings.</li>
+            <li>Assign certified hygiene experts or employees to your booking.</li>
+            <li>Send you SMS, WhatsApp messages, or emails regarding your booking status, updates, and confirmations.</li>
+            <li>Process payments and transactions securely (all payment info is handled by third-party processors).</li>
+            <li>Provide customer support and resolve any service issues or inquiries.</li>
+            <li>Monitor and analyze usage and trends to improve your experience with the Site.</li>
+          </ul>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">4. Disclosure of Your Information</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            We do not sell, trade, or rent your personal information to others. We may share information we have collected about you in certain situations:
+          </p>
+          <ul className="list-disc pl-5 space-y-2 text-sm text-ink/85">
+            <li>
+              <strong>With Hindustan Pest Control (Parent/Affiliated Company):</strong> To assist in operations, service delivery, or corporate administration.
+            </li>
+            <li>
+              <strong>With Assigned Staff/Technicians:</strong> To coordinate service visits, contact you on-site, and perform the pest control treatments.
+            </li>
+            <li>
+              <strong>Third-Party Service Providers:</strong> We may share your information with third parties that perform services for us or on our behalf, including database hosting (PocketBase), SMS/WhatsApp notification systems, payment processing, email delivery, and analytics tools (like Google Analytics and Meta Pixel).
+            </li>
+            <li>
+              <strong>By Law or to Protect Rights:</strong> If we believe the release of information about you is necessary to respond to legal process, to investigate or remedy potential violations of our policies, or to protect the rights, property, and safety of others.
+            </li>
+          </ul>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">5. Security and Retention of Your Information</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            We use administrative, technical, and physical security measures to help protect your personal information. While we have taken reasonable steps to secure the personal information you provide to us, please be aware that despite our efforts, no security measures are perfect or impenetrable, and no method of data transmission can be guaranteed against any interception or other type of misuse.
+          </p>
+          <p className="text-sm leading-relaxed text-ink/85">
+            We retain your personal information only for as long as necessary to provide services to you, maintain account records, and comply with our legal and regulatory obligations.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">6. Your Privacy Rights and Choices</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            You may review, change, or terminate your account at any time. If you have an active account, you can access your profile directly on our website to see updates and past bookings. If you wish to delete your account or delete the personal data associated with your profile, you can contact our support team.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">7. Contact Us</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            If you have questions or comments about this Privacy Policy, please contact us at:
+          </p>
+          <div className="bg-cream/50 p-4 rounded-xl text-xs space-y-1.5 text-forest font-semibold">
+            <div>Pestyfi Eco Solutions (Hindustan Pest Control)</div>
+            <div>Address: Room No. A/6, Shripad Smruti, Manpada Road, Dombivali, Star Colony, Dombivli, Thane-421201, Maharashtra, India</div>
+            <div>Phone: +91 88799 94442</div>
+            <div>Email: privacy@pestyfi.com</div>
+          </div>
+        </section>
+      </div>
+
+      <div className="mt-8 text-center">
+        <button
+          onClick={() => {
+            window.history.pushState({}, '', '/')
+            window.dispatchEvent(new PopStateEvent('popstate'))
+            window.scrollTo(0, 0)
+          }}
+          className="btnPrimary inline-flex items-center gap-2"
+        >
+          ← Back to Homepage
+        </button>
+      </div>
+    </article>
+  )
+}
+
+function DeletionInstructions() {
+  return (
+    <article className="containerX max-w-4xl py-12 md:py-16 text-ink">
+      <header className="mb-10 text-center">
+        <span className="pillX bg-forest/10 text-forest border-forest/20 uppercase tracking-wider text-[11px] font-bold">
+          Account Compliance
+        </span>
+        <h1 className="font-serif text-3xl font-bold text-forest mt-3 md:text-5xl">
+          Data Deletion Instructions
+        </h1>
+        <p className="mt-2 text-sm text-ink/60">
+          How to request the removal of your account data
+        </p>
+      </header>
+
+      <div className="space-y-8 bg-white/60 p-6 md:p-10 rounded-2xl border border-black/5 backdrop-blur-sm shadow-premium">
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">Overview</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            At Pestyfi Eco Solutions, we value your privacy and security. In compliance with Meta Platforms' Developer Policies and global data privacy standards, we provide all registered users with complete control over their personal data. You have the right to request the deletion of your account and all associated personal information at any time.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">What Data Will Be Deleted?</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            When you request data deletion, the following information is permanently and irreversibly removed from our active systems:
+          </p>
+          <ul className="list-disc pl-5 space-y-2 text-sm text-ink/85">
+            <li>Your user profile information (Name, Email address, Phone number).</li>
+            <li>Your saved service and billing addresses.</li>
+            <li>Your account search settings, preferences, and location pincode cache.</li>
+            <li>Any third-party logins linked to your profile (such as Facebook or Google auth associations).</li>
+          </ul>
+          <p className="text-xs text-ink/60 mt-2 italic">
+            Note: Standard financial transaction records and booking invoices may be retained separately for statutory accounting, tax, and legal compliance purposes.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">How to Submit a Deletion Request</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            You can request deletion using one of the following simple methods:
+          </p>
+          <ol className="list-decimal pl-5 space-y-4 text-sm text-ink/85">
+            <li>
+              <strong>Direct In-App Deletion:</strong>
+              <p className="mt-1">
+                Log into your Pestyfi account using your registered phone/email. Open the <strong>My Profile & Bookings</strong> page from the top-right header menu, scroll to the bottom of the profile card, and click the red <strong>Request Data Deletion</strong> button.
+              </p>
+            </li>
+            <li>
+              <strong>Email Support Request:</strong>
+              <p className="mt-1">
+                Send an email to our data privacy officer at <a href="mailto:privacy@pestyfi.com" className="text-eco font-bold hover:underline">privacy@pestyfi.com</a>. Please write <strong>"Request for Data Deletion"</strong> in the subject line, and include the registered phone number or email address associated with your account.
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-serif text-xl font-bold text-forest">Processing Time</h2>
+          <p className="text-sm leading-relaxed text-ink/85">
+            Once a request is submitted via the profile dashboard or email, our team will verify ownership and process the deletion within <strong>48 hours</strong>. You will receive a confirmation message once the deletion is complete.
+          </p>
+        </section>
+      </div>
+
+      <div className="mt-8 text-center">
+        <button
+          onClick={() => {
+            window.history.pushState({}, '', '/')
+            window.dispatchEvent(new PopStateEvent('popstate'))
+            window.scrollTo(0, 0)
+          }}
+          className="btnPrimary inline-flex items-center gap-2"
+        >
+          ← Back to Homepage
+        </button>
+      </div>
+    </article>
+  )
+}
+
+function DeletionStatus() {
+  const params = new URLSearchParams(window.location.search)
+  const trackingId = params.get('id') || 'N/A'
+
+  return (
+    <article className="containerX max-w-2xl py-12 md:py-16 text-ink">
+      <div className="text-center bg-white/60 p-8 md:p-12 rounded-2xl border border-black/5 backdrop-blur-sm shadow-premium space-y-6">
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-eco/10 text-eco text-3xl">
+          ✓
+        </div>
+        <div className="space-y-2">
+          <h1 className="font-serif text-2xl font-bold text-forest md:text-3xl">
+            Deletion Request Received
+          </h1>
+          <p className="text-sm text-ink/70">
+            Your request to delete personal account data has been successfully registered.
+          </p>
+        </div>
+
+        <div className="bg-cream/50 p-4 rounded-xl text-left border border-black/5 space-y-2">
+          <div className="text-xs font-semibold text-forest uppercase tracking-wider">
+            Request Details
+          </div>
+          <div className="text-sm text-ink/85">
+            <span className="font-semibold">Status:</span> In Progress (Pending Verification)
+          </div>
+          <div className="text-sm text-ink/85 truncate">
+            <span className="font-semibold">Tracking ID:</span> <code className="bg-white px-1.5 py-0.5 rounded border text-eco font-mono">{trackingId}</code>
+          </div>
+          <div className="text-sm text-ink/85">
+            <span className="font-semibold">Estimated Completion:</span> Within 48 hours
+          </div>
+        </div>
+
+        <p className="text-xs text-ink/50 leading-relaxed">
+          You can keep this tracking ID for reference. All associated user profiles, location settings, and third-party login linkings will be permanently removed from our databases.
+        </p>
+
+        <div className="pt-4">
+          <button
+            onClick={() => {
+              window.history.pushState({}, '', '/')
+              window.dispatchEvent(new PopStateEvent('popstate'))
+              window.scrollTo(0, 0)
+            }}
+            className="btnPrimary w-full md:w-auto"
+          >
+            Go to Homepage
+          </button>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 function App() {
   const [currentUser, setCurrentUser] = useState(pb.authStore.model)
   const [isAuthOpen, setIsAuthOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
+
+  const handleNavigate = (path) => {
+    window.history.pushState({}, '', path)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    window.scrollTo(0, 0)
+  }
 
   useEffect(() => {
     const handlePopState = () => {
@@ -79,6 +352,39 @@ function App() {
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  // Handle client-side navigation for hash links on subpages and compliance links
+  useEffect(() => {
+    const handleGlobalClicks = (e) => {
+      const anchor = e.target.closest('a')
+      if (!anchor) return
+
+      const href = anchor.getAttribute('href')
+      if (!href) return
+
+      // Handle hash links when on a subpage (e.g. /privacy, /deletion)
+      if (href.startsWith('#')) {
+        if (window.location.pathname !== '/') {
+          e.preventDefault()
+          window.history.pushState({}, '', '/')
+          window.dispatchEvent(new PopStateEvent('popstate'))
+          setTimeout(() => {
+            const target = document.querySelector(href)
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth' })
+            }
+          }, 100)
+        }
+      }
+      // Handle links specifically to /privacy, /deletion or /deletion-status client-side
+      else if (href === '/privacy' || href === '/deletion' || href.startsWith('/deletion-status')) {
+        e.preventDefault()
+        handleNavigate(href)
+      }
+    }
+    document.addEventListener('click', handleGlobalClicks)
+    return () => document.removeEventListener('click', handleGlobalClicks)
   }, [])
   const [locationInfo, setLocationInfo] = useState(() => {
     const saved = localStorage.getItem('pestyfi_location')
@@ -356,8 +662,16 @@ function App() {
       </nav>
 
       <main id="main">
-        {/* 3. Hero */}
-        <section id="top" className="relative overflow-hidden bg-forest text-cream">
+        {currentPath === '/privacy' ? (
+          <PrivacyPolicy />
+        ) : currentPath === '/deletion' ? (
+          <DeletionInstructions />
+        ) : currentPath.startsWith('/deletion-status') ? (
+          <DeletionStatus />
+        ) : (
+          <>
+            {/* 3. Hero */}
+            <section id="top" className="relative overflow-hidden bg-forest text-cream">
           <div className="pointer-events-none absolute inset-0 bg-grain opacity-90" aria-hidden="true" />
           <div
             className="pointer-events-none absolute inset-0 opacity-15"
@@ -1017,6 +1331,8 @@ function App() {
 
           </div>
         </section>
+        </>
+        )}
       </main>
 
       {/* 16. Footer */}
@@ -1049,6 +1365,7 @@ function App() {
                 { label: 'About Us', href: '#about' },
                 { label: 'FAQs', href: '#faq' },
                 { label: 'Book Now', href: '#book' },
+                { label: 'Privacy Policy', href: '/privacy' },
               ].map((l) => (
                 <li key={l.label}>
                   <a href={l.href} className="hover:text-cream">{l.label}</a>
@@ -1066,7 +1383,11 @@ function App() {
         <div className="border-t border-white/10">
           <div className="containerX py-4 text-xs text-cream/60 flex flex-col sm:flex-row justify-between items-center gap-2">
             <span>© 2026 Pestyfi Eco Solutions. All rights reserved.</span>
-            <span>Developed with ❤️ by WHNL group</span>
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+              <a href="/privacy" className="hover:text-cream">Privacy Policy</a>
+              <span>·</span>
+              <span>Developed with ❤️ by WHNL group</span>
+            </div>
           </div>
         </div>
       </footer>
@@ -1147,6 +1468,8 @@ function App() {
           Book Now
         </a>
       </div>
+
+      <IosInstallPrompt />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { pb } from '../lib/pocketbase'
 
 const displayAddress = (addressStr) => {
@@ -1057,6 +1057,16 @@ export default function BackendDashboard() {
               >
                 🛠️ Services & Pricing
               </button>
+              <button
+                onClick={() => setActiveTab('chats')}
+                className={`px-5 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition ${
+                  activeTab === 'chats' 
+                    ? 'border-forest text-forest' 
+                    : 'border-transparent text-ink/40 hover:text-ink/65'
+                }`}
+              >
+                💬 WhatsApp Chats
+              </button>
             </>
           )}
         </div>
@@ -1654,6 +1664,8 @@ export default function BackendDashboard() {
               })}
             </div>
           </div>
+        ) : activeTab === 'chats' && (currentUser.role === 'admin' || currentUser.role === 'superadmin') ? (
+          <WhatsAppChatsPanel />
         ) : (
           <div className="py-16 text-center text-ink/45 font-medium bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
             Please select a valid tab to view details.
@@ -2497,6 +2509,284 @@ export default function BackendDashboard() {
           </form>
         </div>
       )}
+    </div>
+  )
+}
+
+function WhatsAppChatsPanel() {
+  const [messages, setMessages] = useState([])
+  const [selectedPhone, setSelectedPhone] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [replyText, setReplyText] = useState('')
+  const [sendLoading, setSendLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const messagesEndRef = useRef(null)
+
+  // Fetch messages on mount
+  useEffect(() => {
+    setLoading(true)
+    pb.collection('whatsapp_messages')
+      .getList(1, 1000, {
+        sort: '-created',
+      })
+      .then((res) => {
+        // Reverse so it is chronological
+        setMessages(res.items.reverse())
+        setLoading(false)
+      })
+      .catch((err) => {
+        console.error('Failed to fetch messages:', err.message)
+        setLoading(false)
+      })
+
+    // Subscribe to new messages in real-time
+    pb.collection('whatsapp_messages').subscribe('*', (e) => {
+      if (e.action === 'create') {
+        setMessages((prev) => {
+          // Prevent duplicates if already present
+          if (prev.some((m) => m.id === e.record.id)) return prev
+          return [...prev, e.record]
+        })
+      }
+    }).catch(err => console.error('Subscription error:', err.message))
+
+    return () => {
+      pb.collection('whatsapp_messages').unsubscribe('*').catch(() => {})
+    }
+  }, [])
+
+  // Auto-scroll to bottom of chat when messages update or selection changes
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, selectedPhone])
+
+  // Group messages into conversation threads
+  const conversationsMap = {}
+  messages.forEach((msg) => {
+    const phone = msg.phone
+    if (!conversationsMap[phone]) {
+      conversationsMap[phone] = {
+        phone,
+        senderName: msg.senderName || '',
+        messages: [],
+        latestMessage: null,
+      }
+    }
+    if (msg.senderName && !conversationsMap[phone].senderName) {
+      conversationsMap[phone].senderName = msg.senderName
+    }
+    conversationsMap[phone].messages.push(msg)
+    conversationsMap[phone].latestMessage = msg
+  })
+
+  // Filter conversations based on search query
+  const filteredConversations = Object.values(conversationsMap)
+    .filter((conv) => {
+      const q = searchQuery.toLowerCase()
+      return (
+        conv.phone.toLowerCase().includes(q) ||
+        conv.senderName.toLowerCase().includes(q) ||
+        (conv.latestMessage?.body || '').toLowerCase().includes(q)
+      )
+    })
+    .sort((a, b) => new Date(b.latestMessage.created) - new Date(a.latestMessage.created))
+
+  const activeChat = conversationsMap[selectedPhone]
+  const activeMessages = activeChat ? activeChat.messages : []
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault()
+    if (!replyText.trim() || !selectedPhone || sendLoading) return
+
+    setSendLoading(true)
+    try {
+      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const res = await fetch(`${API_BASE}/whatsapp/send-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: pb.authStore.token,
+        },
+        body: JSON.stringify({
+          to: selectedPhone,
+          body: replyText.trim(),
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to send message')
+
+      setReplyText('')
+    } catch (err) {
+      alert(err.message || 'Error sending message')
+    } finally {
+      setSendLoading(false)
+    }
+  }
+
+  const formatMessageTime = (dateStr) => {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+  }
+
+  const formatConversationDate = (dateStr) => {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    const today = new Date()
+    if (d.toDateString() === today.toDateString()) {
+      return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+    }
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden flex flex-col md:flex-row h-[600px]">
+      {/* Left Conversations Sidebar */}
+      <div className="w-full md:w-80 border-r border-black/5 flex flex-col h-1/3 md:h-full shrink-0 bg-cream/10">
+        <div className="p-4 border-b border-black/5">
+          <h4 className="font-serif text-base font-bold text-forest mb-2.5">Chats</h4>
+          <input
+            type="search"
+            placeholder="Search phone or name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full text-xs rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink placeholder:text-ink/30"
+          />
+        </div>
+
+        <div className="flex-1 overflow-y-auto divide-y divide-black/[0.03]">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-full p-4 text-ink/40 text-xs">
+              <svg className="animate-spin h-5 w-5 text-eco mb-2" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Loading conversations...
+            </div>
+          ) : filteredConversations.length === 0 ? (
+            <div className="p-4 text-center text-ink/40 text-xs mt-8">
+              No conversations found.
+            </div>
+          ) : (
+            filteredConversations.map((conv) => {
+              const isSelected = selectedPhone === conv.phone
+              const latest = conv.latestMessage
+              const isLatestIncoming = latest?.direction === 'incoming'
+
+              return (
+                <button
+                  key={conv.phone}
+                  onClick={() => setSelectedPhone(conv.phone)}
+                  className={`w-full p-4 text-left hover:bg-forest/5 flex justify-between items-start transition ${
+                    isSelected ? 'bg-forest/5 border-l-4 border-forest' : ''
+                  }`}
+                >
+                  <div className="min-w-0 flex-1 pr-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-xs text-forest truncate block">
+                        {conv.senderName || `WhatsApp User`}
+                      </span>
+                      {isLatestIncoming && (
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber shrink-0" title="New message reply needed" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-ink/50 font-mono block mt-0.5">+{conv.phone}</span>
+                    <p className="text-[11px] text-ink/60 mt-1.5 truncate">
+                      {latest?.direction === 'outgoing' ? 'You: ' : ''}
+                      {latest?.body || ''}
+                    </p>
+                  </div>
+                  <span className="text-[9px] text-ink/40 font-semibold leading-none pt-0.5 whitespace-nowrap">
+                    {formatConversationDate(latest?.created)}
+                  </span>
+                </button>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Right Chat History Viewport */}
+      <div className="flex-1 flex flex-col h-2/3 md:h-full min-w-0 bg-white">
+        {selectedPhone ? (
+          <>
+            {/* Top Info Bar */}
+            <div className="p-4 border-b border-black/5 flex justify-between items-center bg-cream/5 shrink-0">
+              <div>
+                <h5 className="font-serif text-sm font-bold text-forest">
+                  {activeChat?.senderName || 'WhatsApp User'}
+                </h5>
+                <span className="text-[10px] font-mono text-ink/50 block mt-0.5">+{selectedPhone}</span>
+              </div>
+              <a
+                href={`tel:${selectedPhone}`}
+                className="h-8 w-8 rounded-full bg-forest/5 hover:bg-forest/10 flex items-center justify-center text-sm transition"
+                title="Call client"
+              >
+                📞
+              </a>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-cream/10 flex flex-col">
+              {activeMessages.map((msg, index) => {
+                const isIncoming = msg.direction === 'incoming'
+                return (
+                  <div
+                    key={msg.id || index}
+                    className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm text-xs relative ${
+                      isIncoming
+                        ? 'bg-white text-ink border border-black/5 self-start rounded-tl-none'
+                        : 'bg-forest text-cream self-end rounded-tr-none'
+                    }`}
+                  >
+                    {isIncoming && msg.senderName && (
+                      <div className="text-[9px] font-bold text-forest/70 mb-1 leading-none">{msg.senderName}</div>
+                    )}
+                    <p className="whitespace-pre-line leading-relaxed">{msg.body}</p>
+                    <div
+                      className={`text-[8px] text-right mt-1.5 leading-none select-none font-semibold ${
+                        isIncoming ? 'text-ink/40' : 'text-cream/50'
+                      }`}
+                    >
+                      {formatMessageTime(msg.created)}
+                    </div>
+                  </div>
+                )
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Message Input Form */}
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-black/5 flex gap-2 shrink-0 bg-white">
+              <input
+                type="text"
+                placeholder="Type your WhatsApp message..."
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                disabled={sendLoading}
+                className="flex-1 rounded-xl border border-black/10 bg-cream/5 px-4 py-2.5 text-xs outline-none focus:ring-1 focus:ring-forest text-ink placeholder:text-ink/30"
+              />
+              <button
+                type="submit"
+                disabled={sendLoading || !replyText.trim()}
+                className="h-9 px-5 rounded-xl bg-forest hover:bg-green text-cream text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 shrink-0"
+              >
+                {sendLoading ? 'Sending...' : 'Send'}
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-cream/[0.03]">
+            <div className="text-4xl">💬</div>
+            <h5 className="font-serif text-sm font-bold text-forest mt-3">WhatsApp Live Chat</h5>
+            <p className="text-[11px] text-ink/40 mt-1 max-w-xs">
+              Select a conversation from the list to view history and chat with customers in real-time.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

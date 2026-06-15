@@ -18,6 +18,7 @@
   <meta name="designer" content="WHNL Group" />
   <meta name="theme-color" content="#1A3A2A" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index, follow" />
   <title>Pest Control Services in Mumbai with Odourless Treatments & 365 Day Support</title>
   <meta name="description"
     content="Professional pest control services in Mumbai at 20% off. Book online in minutes. Cockroaches, bedbugs, termite, rodents, mosquito odourless, child and pet safe treatments" />
@@ -36,9 +37,9 @@
   <link rel="preconnect" href="https://checkout.razorpay.com" />
   <link rel="preconnect" href="https://cdn.razorpay.com" crossorigin />
 
-  <!-- Preload hero LCP image (dynamically injected only on non-backend pages to avoid unused preloads) -->
+  <!-- Preload hero LCP image (dynamically injected only on homepage to avoid unused preloads) -->
   <script>
-    if (window.location.pathname !== '/backend') {
+    if (window.location.pathname === '/' || window.location.pathname === '') {
       const link = document.createElement('link');
       link.rel = 'preload';
       link.as = 'image';
@@ -52,6 +53,14 @@
     rel="stylesheet" />
 
   <link rel="icon" href="/logo.webp" type="image/webp" />
+  
+  <!-- Progressive Web App (PWA) and Apple Meta Tags -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Pestyfi" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
   <script type="application/ld+json">
     {

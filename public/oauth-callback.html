@@ -60,7 +60,7 @@
         }
 
         const pb = new PocketBase(pbUrl)
-        await pb.collection('users').authWithOAuth2Code(
+        const authData = await pb.collection('users').authWithOAuth2Code(
           provider.name,
           code,
           provider.codeVerifier,
@@ -72,11 +72,20 @@
         localStorage.removeItem('pestyfi_oauth_redirect')
         localStorage.removeItem('pestyfi_pb_url')
 
-        window.location.replace('/')
+        if (window.opener) {
+          window.opener.postMessage({ type: 'oauth-success', authData }, window.location.origin)
+          window.close()
+        } else {
+          window.location.replace('/')
+        }
       } catch (err) {
         status.hidden = true
         errorEl.hidden = false
         errorEl.textContent = err.message || 'Sign-in failed.'
+        if (window.opener) {
+          window.opener.postMessage({ type: 'oauth-error', error: err.message }, window.location.origin)
+          setTimeout(() => window.close(), 3000)
+        }
       }
     </script>
   </body>

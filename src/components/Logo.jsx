@@ -2,7 +2,18 @@ export default function Logo({ className = '', size = 'md', onDark = false }) {
   const heights = { sm: 'h-7', md: 'h-8', lg: 'h-10' }
 
   return (
-    <a href="#top" className={`inline-flex shrink-0 items-center ${className}`} aria-label="Pestyfi home">
+    <a
+      href="/"
+      onClick={(e) => {
+        if (window.location.pathname !== '/') {
+          e.preventDefault()
+          window.history.pushState({}, '', '/')
+          window.dispatchEvent(new PopStateEvent('popstate'))
+        }
+      }}
+      className={`inline-flex shrink-0 items-center ${className}`}
+      aria-label="Pestyfi home"
+    >
       <img
         src="/logo.webp"
         alt="Pestyfi Eco Solutions"

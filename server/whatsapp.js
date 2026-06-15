@@ -78,6 +78,55 @@ export async function sendWhatsAppTemplate(to, templateName = 'hello_world', lan
 }
 
 export async function sendLoginOtp(to, code) {
-  const body = `Your Pestyfi login code is *${code}*. Valid for 10 minutes. Do not share this code with anyone.`
-  return sendWhatsAppText(to, body)
+  if (!PHONE_NUMBER_ID || !ACCESS_TOKEN) {
+    throw new Error('WhatsApp API is not configured. Set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN.')
+  }
+
+  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${PHONE_NUMBER_ID}/messages`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: normalizePhone(to),
+      type: 'template',
+      template: {
+        name: 'website_login',
+        language: { code: 'en' },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              {
+                type: 'text',
+                text: String(code),
+              },
+            ],
+          },
+          {
+            type: 'button',
+            sub_type: 'url',
+            index: '0',
+            parameters: [
+              {
+                type: 'text',
+                text: String(code),
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  })
+
+  const data = await res.json()
+  if (!res.ok) {
+    const msg = data?.error?.message || res.statusText
+    throw new Error(msg)
+  }
+  return data
 }
+

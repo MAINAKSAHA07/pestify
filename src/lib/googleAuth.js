@@ -65,6 +65,63 @@ export async function startGoogleRedirectLogin() {
   window.location.href = buildOAuthUrl(provider.authUrl, redirectURL)
 }
 
+export async function startGooglePopupLogin() {
+  const methods = await getAuthMethods()
+  const providers = methods.authProviders ?? methods.oauth2?.providers ?? []
+  const provider = providers.find((p) => p.name === 'google')
+
+  if (!provider) {
+    throw new Error('Google login is not enabled in PocketBase Admin → Settings → Auth providers.')
+  }
+
+  const redirectURL = `${window.location.origin}${OAUTH_CALLBACK_PATH}`
+
+  localStorage.setItem(STORAGE.pbUrl, pb.baseUrl)
+  localStorage.setItem(STORAGE.provider, JSON.stringify(provider))
+  localStorage.setItem(STORAGE.redirect, redirectURL)
+
+  const authUrl = buildOAuthUrl(provider.authUrl, redirectURL)
+
+  const w = 500
+  const h = 600
+  const left = window.screen.width / 2 - w / 2
+  const top = window.screen.height / 2 - h / 2
+
+  const popup = window.open(
+    authUrl,
+    'pestyfi_oauth',
+    `width=${w},height=${h},top=${top},left=${left},status=no,resizable=yes,scrollbars=yes`
+  )
+
+  if (!popup) {
+    throw new Error('Popup blocked')
+  }
+
+  return new Promise((resolve, reject) => {
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) return
+
+      if (event.data?.type === 'oauth-success') {
+        window.removeEventListener('message', handleMessage)
+        resolve(event.data.authData)
+      } else if (event.data?.type === 'oauth-error') {
+        window.removeEventListener('message', handleMessage)
+        reject(new Error(event.data.error || 'Authentication failed'))
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+
+    const timer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(timer)
+        window.removeEventListener('message', handleMessage)
+        reject(new Error('Login window closed.'))
+      }
+    }, 1000)
+  })
+}
+
 /** Called from oauth-callback.html after Google redirects back */
 export async function completeGoogleRedirectLogin() {
   const params = new URLSearchParams(window.location.search)

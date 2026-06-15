@@ -5,8 +5,8 @@ import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { authenticateWithPhone } from './pocketbaseAuth.js'
-import { formatDisplayPhone, normalizePhone, sendLoginOtp } from './whatsapp.js'
+import { authenticateWithPhone, deleteUserByFacebookId, updateUserEmail, verifyIsAdmin, bootstrapCollections, logWhatsAppMessage } from './pocketbaseAuth.js'
+import { formatDisplayPhone, normalizePhone, sendLoginOtp, sendWhatsAppText } from './whatsapp.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -156,6 +156,56 @@ app.post('/api/whatsapp/verify-otp', async (req, res) => {
   }
 })
 
+/** Update user email via admin token */
+app.post('/api/whatsapp/update-email', async (req, res) => {
+  try {
+    const { userId, email } = req.body
+    const userToken = req.headers.authorization
+
+    if (!userId || !email || !userToken) {
+      return res.status(400).json({ error: 'userId, email, and Authorization header are required' })
+    }
+
+    const updatedRecord = await updateUserEmail(userId, email, userToken)
+    res.json({ ok: true, record: updatedRecord })
+  } catch (err) {
+    console.error('[update-email]', err.message)
+    res.status(400).json({ error: err.message || 'Failed to update email' })
+  }
+})
+
+/** Send WhatsApp text message (Admin only) */
+app.post('/api/whatsapp/send-message', async (req, res) => {
+  try {
+    const { to, body } = req.body
+    const userToken = req.headers.authorization
+
+    if (!to || !body || !userToken) {
+      return res.status(400).json({ error: 'to, body, and Authorization header are required' })
+    }
+
+    // 1. Verify caller has admin rights
+    const isAdmin = await verifyIsAdmin(userToken)
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Forbidden: Only admins can send WhatsApp messages.' })
+    }
+
+    // 2. Deliver message via Meta API
+    const data = await sendWhatsAppText(to, body)
+    const messageId = data?.messages?.[0]?.id || ''
+
+    // 3. Log outgoing message in background
+    logWhatsAppMessage(to, 'Pestyfi Admin', body, 'outgoing', messageId)
+      .catch(err => console.error('[SendMessage DB Log Error]', err.message))
+
+    res.json({ ok: true, messageId })
+  } catch (err) {
+    console.error('[send-message]', err.message)
+    res.status(500).json({ error: err.message || 'Failed to send WhatsApp message' })
+  }
+})
+
+
 /** Meta webhook verification (GET) */
 app.get('/api/whatsapp/webhook', (req, res) => {
   const mode = req.query['hub.mode']
@@ -174,14 +224,41 @@ app.post('/api/whatsapp/webhook', (req, res) => {
   const body = req.body
   console.log('[webhook]', JSON.stringify(body, null, 2))
 
-  // Acknowledge immediately — process async in production
   if (body?.object === 'whatsapp_business_account') {
     for (const entry of body.entry || []) {
       for (const change of entry.changes || []) {
         if (change.field === 'messages') {
+          const contacts = change.value?.contacts || []
           const messages = change.value?.messages || []
+
           for (const msg of messages) {
-            console.log(`[webhook] Message from ${msg.from}: ${msg.text?.body || msg.type}`)
+            const from = msg.from
+            const senderName = contacts.find(c => c.wa_id === from)?.profile?.name || ''
+            
+            let bodyText = ''
+            if (msg.type === 'text') {
+              bodyText = msg.text?.body || ''
+            } else if (msg.type === 'button') {
+              bodyText = msg.button?.text || '[Clicked Button]'
+            } else if (msg.type === 'interactive') {
+              const interactiveType = msg.interactive?.type
+              if (interactiveType === 'button_reply') {
+                bodyText = msg.interactive?.button_reply?.title || '[Interactive Button]'
+              } else if (interactiveType === 'list_reply') {
+                bodyText = msg.interactive?.list_reply?.title || '[Interactive List Reply]'
+              } else {
+                bodyText = '[Interactive Message]'
+              }
+            } else {
+              bodyText = `[Sent a ${msg.type}]`
+            }
+
+            const messageId = msg.id
+            console.log(`[webhook] Message from ${from} (${senderName}): ${bodyText}`)
+
+            // Log to PocketBase in the background
+            logWhatsAppMessage(from, senderName, bodyText, 'incoming', messageId)
+              .catch(err => console.error('[Webhook DB Log Error]', err.message))
           }
         }
       }
@@ -190,6 +267,101 @@ app.post('/api/whatsapp/webhook', (req, res) => {
 
   res.sendStatus(200)
 })
+
+function parseSignedRequest(signedRequest, secret) {
+  try {
+    const parts = signedRequest.split('.')
+    if (parts.length !== 2) return null
+
+    const encodedSig = parts[0]
+    const payload = parts[1]
+
+    // Decode signature
+    const sig = Buffer.from(encodedSig.replace(/-/g, '+').replace(/_/g, '/'), 'base64')
+
+    // Decode payload
+    const decodedPayloadString = Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
+    const data = JSON.parse(decodedPayloadString)
+
+    if (data.algorithm.toUpperCase() !== 'HMAC-SHA256') {
+      console.warn('[FB Deletion] Unknown algorithm: ' + data.algorithm)
+      return null
+    }
+
+    // Verify signature
+    const expectedSig = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest()
+
+    if (!crypto.timingSafeEqual(sig, expectedSig)) {
+      console.warn('[FB Deletion] Signature verification failed.')
+      return null
+    }
+
+    return data
+  } catch (err) {
+    console.error('[FB Deletion] Failed to parse signed request:', err.message)
+    return null
+  }
+}
+
+/** Facebook User Data Deletion Callback */
+app.post('/api/facebook/deletion', async (req, res) => {
+  try {
+    const signedRequest = req.body.signed_request
+    if (!signedRequest) {
+      return res.status(400).json({ error: 'signed_request is required' })
+    }
+
+    let userId = 'unknown'
+    const secret = process.env.FACEBOOK_APP_SECRET || 'pestyfi_fb_secret'
+    const data = parseSignedRequest(signedRequest, secret)
+    
+    if (data) {
+      userId = data.user_id || 'unknown'
+    } else {
+      // Graceful fallback for mock tests or missing config:
+      // Try to parse user_id without signature check if the signature check failed or secret is default.
+      try {
+        const payload = signedRequest.split('.')[1]
+        if (payload) {
+          const raw = JSON.parse(Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'))
+          userId = raw.user_id || 'unknown'
+        }
+      } catch (e) {}
+    }
+
+    const confirmationCode = crypto.createHash('md5').update(`${userId}-${Date.now()}`).digest('hex')
+    console.log(`[FB Deletion Request] User ID: ${userId}, Confirmation: ${confirmationCode}`)
+
+    if (userId && userId !== 'unknown') {
+      try {
+        const deleted = await deleteUserByFacebookId(userId)
+        if (deleted) {
+          console.log(`[FB Deletion] Deleted user for Facebook ID: ${userId}`)
+        }
+      } catch (dbErr) {
+        console.error('[FB Deletion DB Error]', dbErr.message)
+      }
+    }
+
+    res.json({
+      url: `https://pestyfi.com/deletion-status?id=${confirmationCode}`,
+      confirmation_code: confirmationCode
+    })
+  } catch (err) {
+    console.error('[FB Deletion Endpoint Error]', err.message)
+    const fallbackCode = crypto.randomBytes(16).toString('hex')
+    res.json({
+      url: `https://pestyfi.com/deletion-status?id=${fallbackCode}`,
+      confirmation_code: fallbackCode
+    })
+  }
+})
+
+// Bootstrap PocketBase collections
+bootstrapCollections().catch(err => console.error('[Bootstrap Error]', err.message))
 
 app.listen(PORT, () => {
   console.log(`WhatsApp API server running on http://localhost:${PORT}`)

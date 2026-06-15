@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react'
 import { pb } from '../lib/pocketbase'
 
+export function normalizePhone(phone) {
+  if (!phone) return ''
+  const digits = String(phone).replace(/\D/g, '')
+  if (digits.length === 10) return `91${digits}`
+  return digits
+}
+
 export function parseStoredAddress(addressStr) {
   if (!addressStr) {
     return { flat: '', building: '', society: '', area: '', city: '', pincode: '' }
@@ -210,6 +217,7 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
   // Profile Edit States
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
   const [editPhone, setEditPhone] = useState('')
   const [editFlat, setEditFlat] = useState('')
   const [editBuilding, setEditBuilding] = useState('')
@@ -231,6 +239,7 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
     if (!currentUser) return
 
     setEditName(currentUser.name || '')
+    setEditEmail(currentUser.email || '')
     setEditPhone(currentUser.phone || localStorage.getItem('pestyfi_profile_phone') || '')
     
     const addrStr = currentUser.address || localStorage.getItem('pestyfi_profile_address') || ''
@@ -253,7 +262,7 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
 
     pb.collection('bookings')
       .getList(1, 50, {
-        filter: `phone = "${userPhone.trim()}"`,
+        filter: `phone = "${normalizePhone(userPhone)}"`,
         sort: '-created',
       })
       .then((res) => {
@@ -280,7 +289,7 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
 
     try {
       const res = await pb.collection('bookings').getList(1, 50, {
-        filter: `phone = "${searchPhone.trim()}"`,
+        filter: `phone = "${normalizePhone(searchPhone)}"`,
         sort: '-created',
       })
       setSearchResult(res.items)
@@ -324,10 +333,30 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
     localStorage.setItem('pestyfi_profile_phone', editPhone)
 
     try {
+      const hasEmailChanged = editEmail.trim() !== (currentUser.email || '').trim()
+      if (hasEmailChanged) {
+        const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+        const emailRes = await fetch(`${API_BASE}/whatsapp/update-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': pb.authStore.token
+          },
+          body: JSON.stringify({
+            userId: currentUser.id,
+            email: editEmail.trim()
+          })
+        })
+        const emailData = await emailRes.json()
+        if (!emailRes.ok) {
+          throw new Error(emailData.error || 'Failed to update email address.')
+        }
+      }
+
       // Step 1: Try saving name, phone, and address to PocketBase
       const updatedRecord = await pb.collection('users').update(currentUser.id, {
         name: editName,
-        phone: editPhone,
+        phone: normalizePhone(editPhone),
         address: serializedAddress,
       })
       onUserUpdate?.(updatedRecord)
@@ -339,7 +368,7 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
         // Step 2: Try saving name and phone to PocketBase
         const updatedRecord = await pb.collection('users').update(currentUser.id, {
           name: editName,
-          phone: editPhone,
+          phone: normalizePhone(editPhone),
         })
         onUserUpdate?.(updatedRecord)
         setIsEditing(false)
@@ -438,6 +467,24 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
                 <div><span className="font-medium text-ink/50">Phone:</span> <span className="font-semibold text-forest">{displayPhone}</span></div>
                 <div><span className="font-medium text-ink/50">Home Address:</span> <span className="font-semibold text-forest block mt-1 whitespace-pre-wrap">{displayAddress}</span></div>
               </div>
+              <div className="mt-4 border-t border-black/5 pt-3 flex justify-between items-center">
+                <span className="text-[10px] text-ink/40">Need to remove your account?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to request data deletion? Your profile, addresses, and third-party links will be permanently deleted.")) {
+                      pb.authStore.clear()
+                      onClose()
+                      window.history.pushState({}, '', '/deletion-status?id=acc-del-' + Math.random().toString(36).substring(2, 10))
+                      window.dispatchEvent(new PopStateEvent('popstate'))
+                      window.location.reload()
+                    }
+                  }}
+                  className="text-[11px] font-bold text-urgent hover:underline"
+                >
+                  Request Data Deletion
+                </button>
+              </div>
             </div>
           ) : currentUser && isEditing ? (
             <form onSubmit={handleSaveProfile} className="mb-6 rounded-xl bg-cream/50 border border-black/5 p-4 shrink-0 space-y-3">
@@ -450,6 +497,17 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
+                  className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-forest">
+                <span>Email Address</span>
+                <input
+                  type="email"
+                  required
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
                   className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
                 />
               </label>
