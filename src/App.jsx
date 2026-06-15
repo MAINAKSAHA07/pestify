@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { setupLeadForm, setupMobileNavToggle, setupRevealAnimations } from './hooks'
 import { CONTACT } from './site'
 import Logo from './components/Logo'
@@ -8,10 +8,11 @@ import AuthModal from './components/AuthModal'
 import BookingWizard from './components/BookingWizard'
 import LocationModal from './components/LocationModal'
 import ScrollRevealText from './components/ScrollRevealText'
-import ProfileModal from './components/ProfileModal'
+import ProfileModal, { normalizePhone } from './components/ProfileModal'
 import BackendDashboard from './components/BackendDashboard'
 import SalesNotifier from './components/SalesNotifier'
 import IosInstallPrompt from './components/IosInstallPrompt'
+import { triggerNativeNotification } from './lib/notifications'
 import {
   ANNOUNCEMENT,
   NAV_LINKS,
@@ -339,6 +340,299 @@ function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
+  const [appNotification, setAppNotification] = useState(null)
+  const audioCtxRef = useRef(null)
+
+  useEffect(() => {
+    if (!appNotification) return
+    const timer = setTimeout(() => {
+      setAppNotification(null)
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [appNotification])
+
+  const playChime = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      const ctx = audioCtxRef.current
+      if (ctx.state === 'suspended') {
+        ctx.resume()
+      }
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      
+      osc.type = 'sine'
+      const now = ctx.currentTime
+      osc.frequency.setValueAtTime(587.33, now) // D5
+      gain.gain.setValueAtTime(0.15, now)
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15)
+      
+      osc.frequency.setValueAtTime(880, now + 0.1) // A5
+      gain.gain.setValueAtTime(0.15, now + 0.1)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4)
+      
+      osc.start(now)
+      osc.stop(now + 0.4)
+    } catch (err) {
+      console.error('Audio chime failed:', err)
+    }
+  }
+
+  const triggerGlobalNotification = (title, message) => {
+    playChime()
+    setAppNotification({ title, message, id: String(Date.now()) })
+    triggerNativeNotification(title, message)
+  }
+
+  const checkBookingStatusChanges = async () => {
+    if (!currentUser) return
+    const phoneClean = normalizePhone(currentUser.phone)
+    if (!phoneClean && !currentUser.email) return
+
+    try {
+      const filter = phoneClean 
+        ? `phone = "${phoneClean}" || email = "${currentUser.email}"`
+        : `email = "${currentUser.email}"`
+      
+      const res = await pb.collection('bookings').getList(1, 100, {
+        filter: filter,
+        sort: '-created'
+      })
+
+      const storedStatuses = localStorage.getItem('pestyfi_booking_statuses')
+      const statuses = storedStatuses ? JSON.parse(storedStatuses) : {}
+      const hasPriorCache = Object.keys(statuses).length > 0
+
+      res.items.forEach((b) => {
+        const prevStatus = statuses[b.id]
+        if (hasPriorCache && prevStatus && prevStatus !== b.status) {
+          triggerGlobalNotification(
+            '🔔 Booking Update',
+            `Your booking for ${b.service} is now "${b.status}".`
+          )
+        }
+        statuses[b.id] = b.status
+      })
+
+      localStorage.setItem('pestyfi_booking_statuses', JSON.stringify(statuses))
+    } catch (err) {
+      console.warn('[checkBookingStatusChanges failed]', err.message)
+    }
+  }
+
+  const checkAdminNewItems = async () => {
+    if (!currentUser) return
+    const isStaff = currentUser.role === 'admin' || currentUser.role === 'employee' || currentUser.role === 'superadmin'
+    if (!isStaff) return
+
+    try {
+      const storedTimestamps = localStorage.getItem('pestyfi_admin_timestamps')
+      const cached = storedTimestamps ? JSON.parse(storedTimestamps) : null
+
+      const [latestBkRes, latestLdRes, latestMsgRes] = await Promise.all([
+        pb.collection('bookings').getList(1, 1, { sort: '-created' }),
+        pb.collection('leads').getList(1, 1, { sort: '-created' }),
+        pb.collection('whatsapp_messages').getList(1, 1, { filter: 'direction = "incoming"', sort: '-created' })
+      ])
+
+      const latestBk = latestBkRes.items?.[0]
+      const latestLd = latestLdRes.items?.[0]
+      const latestMsg = latestMsgRes.items?.[0]
+
+      const nextCache = {
+        bookingId: latestBk?.id || '',
+        bookingCreated: latestBk?.created || '',
+        leadId: latestLd?.id || '',
+        leadCreated: latestLd?.created || '',
+        messageId: latestMsg?.id || '',
+        messageCreated: latestMsg?.created || ''
+      }
+
+      if (cached && window.location.pathname !== '/backend') {
+        let alerts = []
+        if (latestBk && latestBk.id !== cached.bookingId && new Date(latestBk.created) > new Date(cached.bookingCreated)) {
+          const client = latestBk.fullName || 'Anonymous'
+          alerts.push(`Booking from ${client}`)
+        }
+        if (latestLd && latestLd.id !== cached.leadId && new Date(latestLd.created) > new Date(cached.leadCreated)) {
+          const client = latestLd.fullName || 'New Lead'
+          alerts.push(`Lead from ${client}`)
+        }
+        if (latestMsg && latestMsg.id !== cached.messageId && new Date(latestMsg.created) > new Date(cached.messageCreated)) {
+          const sender = latestMsg.senderName || 'WhatsApp User'
+          alerts.push(`Message from ${sender}`)
+        }
+
+        if (alerts.length > 0) {
+          triggerGlobalNotification(
+            '🔔 Pestyfi Dashboard Alerts',
+            `New activity: ${alerts.join(', ')}`
+          )
+        }
+      }
+
+      localStorage.setItem('pestyfi_admin_timestamps', JSON.stringify(nextCache))
+    } catch (err) {
+      console.warn('[checkAdminNewItems failed]', err.message)
+    }
+  }
+
+  const updateAdminCache = (type, record) => {
+    try {
+      const stored = localStorage.getItem('pestyfi_admin_timestamps')
+      const cache = stored ? JSON.parse(stored) : {
+        bookingId: '', bookingCreated: '',
+        leadId: '', leadCreated: '',
+        messageId: '', messageCreated: ''
+      }
+      if (type === 'booking') {
+        cache.bookingId = record.id
+        cache.bookingCreated = record.created
+      } else if (type === 'lead') {
+        cache.leadId = record.id
+        cache.leadCreated = record.created
+      } else if (type === 'message') {
+        cache.messageId = record.id
+        cache.messageCreated = record.created
+      }
+      localStorage.setItem('pestyfi_admin_timestamps', JSON.stringify(cache))
+    } catch (e) {}
+  }
+
+  // Focus and Active Window Resume Sync Effect
+  useEffect(() => {
+    if (!currentUser) return
+
+    const isStaff = currentUser.role === 'admin' || currentUser.role === 'employee' || currentUser.role === 'superadmin'
+    if (isStaff) {
+      checkAdminNewItems()
+    } else {
+      checkBookingStatusChanges()
+    }
+
+    const handleFocus = () => {
+      if (isStaff) {
+        checkAdminNewItems()
+      } else {
+        checkBookingStatusChanges()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [currentUser?.id, currentUser?.role])
+
+  // Stable Live Notifications Listener (subscribes/unsubscribes only on login session state change)
+  useEffect(() => {
+    if (!currentUser) return
+
+    const isStaff = currentUser.role === 'admin' || currentUser.role === 'employee' || currentUser.role === 'superadmin'
+
+    let pbUnsubscribe = () => {}
+
+    if (isStaff) {
+      // Admin/Employee subscriptions on the main site (only triggers if we are not on the /backend route)
+      pb.collection('bookings').subscribe('*', (e) => {
+        if (window.location.pathname === '/backend') return
+        if (e.action === 'create') {
+          const client = e.record.fullName || 'Anonymous Client'
+          const srv = e.record.service || 'Pest Treatment'
+          const dt = e.record.preferredDate ? new Date(e.record.preferredDate).toLocaleDateString() : 'unscheduled'
+          triggerGlobalNotification(
+            '🔔 New Booking',
+            `${client} booked ${srv} for ${dt}`
+          )
+          updateAdminCache('booking', e.record)
+        }
+      }).catch(err => console.error('[Global realtime bookings error]', err.message))
+
+      pb.collection('leads').subscribe('*', (e) => {
+        if (window.location.pathname === '/backend') return
+        if (e.action === 'create') {
+          const leadName = e.record.fullName || 'New Lead'
+          const topic = e.record.subject || 'Inquiry'
+          triggerGlobalNotification(
+            '✉️ New Lead Received',
+            `${leadName} - "${topic}"`
+          )
+          updateAdminCache('lead', e.record)
+        }
+      }).catch(err => console.error('[Global realtime leads error]', err.message))
+
+      pb.collection('whatsapp_messages').subscribe('*', (e) => {
+        if (window.location.pathname === '/backend') return
+        if (e.action === 'create' && e.record.direction === 'incoming') {
+          const sender = e.record.senderName || 'WhatsApp User'
+          const text = e.record.body ? e.record.body.replace(/<[^>]*>/g, '') : '[Attachment/Media]'
+          triggerGlobalNotification(
+            '💬 WhatsApp Message',
+            `${sender}: "${text.slice(0, 45)}${text.length > 45 ? '...' : ''}"`
+          )
+          updateAdminCache('message', e.record)
+        }
+      }).catch(err => console.error('[Global realtime whatsapp error]', err.message))
+
+      pbUnsubscribe = () => {
+        pb.collection('bookings').unsubscribe('*').catch(() => {})
+        pb.collection('leads').unsubscribe('*').catch(() => {})
+        pb.collection('whatsapp_messages').unsubscribe('*').catch(() => {})
+      }
+    } else {
+      // Customer subscription (anywhere they are logged in on the app)
+      const phoneClean = normalizePhone(currentUser.phone)
+      
+      pb.collection('bookings').subscribe('*', (e) => {
+        const isOwnBooking = e.record.phone === phoneClean || e.record.email === currentUser.email
+        if (!isOwnBooking) return
+
+        if (e.action === 'create') {
+          triggerGlobalNotification(
+            '📅 Booking Confirmed',
+            `Your booking for ${e.record.service} has been successfully placed.`
+          )
+        } else if (e.action === 'update') {
+          triggerGlobalNotification(
+            '🔔 Booking Update',
+            `Your booking for ${e.record.service} is now "${e.record.status}".`
+          )
+        }
+
+        // Keep local cache in sync
+        try {
+          const stored = localStorage.getItem('pestyfi_booking_statuses')
+          const cache = stored ? JSON.parse(stored) : {}
+          cache[e.record.id] = e.record.status
+          localStorage.setItem('pestyfi_booking_statuses', JSON.stringify(cache))
+        } catch (err) {}
+      }).catch(err => console.error('[Customer booking realtime error]', err.message))
+
+      pb.collection('whatsapp_messages').subscribe('*', (e) => {
+        const isOwnMessage = e.record.phone === phoneClean
+        if (!isOwnMessage) return
+
+        if (e.action === 'create' && e.record.direction === 'outgoing') {
+          const text = e.record.body ? e.record.body.replace(/<[^>]*>/g, '') : '[Attachment/Media]'
+          triggerGlobalNotification(
+            '💬 Message from Pestyfi Support',
+            text
+          )
+        }
+      }).catch(err => console.error('[Customer whatsapp realtime error]', err.message))
+
+      pbUnsubscribe = () => {
+        pb.collection('bookings').unsubscribe('*').catch(() => {})
+        pb.collection('whatsapp_messages').unsubscribe('*').catch(() => {})
+      }
+    }
+
+    return () => {
+      pbUnsubscribe()
+    }
+  }, [currentUser?.id, currentUser?.role])
 
   const handleNavigate = (path) => {
     window.history.pushState({}, '', path)
@@ -1470,6 +1764,45 @@ function App() {
       </div>
 
       <IosInstallPrompt />
+
+      {/* Floating App Notification Toast CSS & Component */}
+      {appNotification && (
+        <>
+          <style>{`
+            @keyframes toastSlideIn {
+              from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+              to { transform: translateY(0) scale(1); opacity: 1; }
+            }
+            .toast-animate {
+              animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+          `}</style>
+          <div 
+            className="fixed top-4 right-4 z-[9999] max-w-sm w-full bg-white/95 border border-forest/10 rounded-2xl shadow-premium p-4 pointer-events-auto transition-all duration-300 toast-animate cursor-pointer flex gap-3 backdrop-blur-md ring-1 ring-black/5"
+            onClick={() => setAppNotification(null)}
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-forest/10 text-forest text-lg">
+              🔔
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-bold text-forest leading-tight truncate">{appNotification.title}</div>
+              <div className="text-[11px] text-ink/75 leading-normal mt-1 break-words">{appNotification.message}</div>
+            </div>
+            <button 
+              type="button" 
+              className="text-ink/30 hover:text-ink/65 h-6 w-6 shrink-0 flex items-center justify-center rounded-lg hover:bg-black/5"
+              onClick={(e) => {
+                e.stopPropagation()
+                setAppNotification(null)
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

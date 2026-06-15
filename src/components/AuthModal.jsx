@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { pb } from '../lib/pocketbase'
 import { sendWhatsAppOtp, verifyWhatsAppOtp } from '../lib/whatsappAuth'
 import { getAuthMethods, isGoogleAuthEnabled, startGoogleRedirectLogin, startGooglePopupLogin, parseAuthError, GOOGLE_REDIRECT_URI } from '../lib/googleAuth'
+import { normalizePhone } from './ProfileModal'
 
 export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const [mode, setMode] = useState('whatsapp-phone')
@@ -12,6 +13,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const [info, setInfo] = useState('')
   const [googleEnabled, setGoogleEnabled] = useState(false)
   const [cooldown, setCooldown] = useState(0)
+  const [newName, setNewName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -29,6 +32,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     setInfo('')
     setLoading(false)
     setMode('whatsapp-phone')
+    setNewName('')
+    setNewEmail('')
 
     getAuthMethods()
       .then((methods) => setGoogleEnabled(isGoogleAuthEnabled(methods)))
@@ -40,7 +45,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const title =
     mode === 'whatsapp-phone'
       ? 'Login with WhatsApp'
-      : 'Enter WhatsApp Code'
+      : mode === 'whatsapp-otp'
+        ? 'Enter WhatsApp Code'
+        : 'Setup Account Profile'
 
   const handleGoogleLogin = () => {
     if (!googleEnabled) {
@@ -100,7 +107,63 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     setLoading(true)
     try {
       const data = await verifyWhatsAppOtp(phone, otp)
+      
+      const isNew = !data.record.name || 
+                    data.record.name.startsWith('WhatsApp ') || 
+                    !data.record.email || 
+                    data.record.email.endsWith('@pestyfi.local')
+
       pb.authStore.save(data.token, data.record)
+
+      if (isNew) {
+        setMode('onboarding')
+      } else {
+        onSuccess?.()
+        onClose()
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleOnboardingSubmit = async (e) => {
+    e.preventDefault()
+    if (!newName.trim()) {
+      setError('Name is required.')
+      return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      const updateData = { name: newName.trim() }
+      
+      const emailVal = newEmail.trim()
+      const hasRealEmail = emailVal && !emailVal.endsWith('@pestyfi.local')
+      
+      if (hasRealEmail) {
+        const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+        const emailRes = await fetch(`${API_BASE}/whatsapp/update-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': pb.authStore.token
+          },
+          body: JSON.stringify({
+            userId: pb.authStore.model.id,
+            email: emailVal
+          })
+        })
+        const emailData = await emailRes.json()
+        if (!emailRes.ok) {
+          throw new Error(emailData.error || 'Failed to update email address.')
+        }
+      }
+      
+      const updatedUser = await pb.collection('users').update(pb.authStore.model.id, updateData)
+      pb.authStore.save(pb.authStore.token, updatedUser)
+      
       onSuccess?.()
       onClose()
     } catch (err) {
@@ -156,6 +219,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
                 </button>
               </form>
 
+              {/*
               <div className="relative my-5">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-black/5" />
@@ -187,6 +251,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
                   </p>
                 )}
               </div>
+              */}
             </>
           )}
 
@@ -220,6 +285,38 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
                 className="w-full text-xs font-semibold text-ink/50 hover:text-eco"
               >
                 ← Change number / resend
+              </button>
+            </form>
+          )}
+
+          {mode === 'onboarding' && (
+            <form onSubmit={handleOnboardingSubmit} className="space-y-4" noValidate>
+              <p className="text-xs text-ink/65 leading-relaxed">
+                Welcome to Pestyfi! Please complete your account setup by entering your name and email.
+              </p>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink/60">Full Name *</span>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Rahul Sharma"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-black/10 bg-cream/30 px-3.5 text-sm focus:border-eco focus:outline-none focus:ring-2 focus:ring-eco/20"
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink/60">Email Address (Optional)</span>
+                <input
+                  type="email"
+                  placeholder="e.g. rahul@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-black/10 bg-cream/30 px-3.5 text-sm focus:border-eco focus:outline-none focus:ring-2 focus:ring-eco/20"
+                />
+              </label>
+              <button type="submit" disabled={loading || !newName.trim()} className="btnX h-11 w-full bg-forest font-semibold text-cream hover:bg-green disabled:opacity-70">
+                {loading ? 'Saving Profile...' : 'Complete Registration'}
               </button>
             </form>
           )}

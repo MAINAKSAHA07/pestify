@@ -6,6 +6,13 @@ import { parseStoredAddress, formatAddress } from './ProfileModal'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 
+const normalizePhone = (p) => {
+  if (!p) return ''
+  const digits = String(p).replace(/\D/g, '')
+  if (digits.length === 10) return `91${digits}`
+  return digits
+}
+
 export default function BookingWizard({ currentUser, locationInfo, services: customServices, rates: customRates }) {
   const finalServices = customServices || SERVICES
   const finalRates = customRates || SERVICE_RATES
@@ -235,7 +242,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
       try {
         const record = await pb.collection('bookings').create({
           fullName,
-          phone,
+          phone: normalizePhone(phone),
           location,
           service: `${currentRate.label} (${duration === 'annual' ? 'Annual Plan' : 'One-Time'})`,
           bhkSize: propertyType === 'commercial' ? 'Commercial' : bhkSize,
@@ -261,7 +268,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
               pincode: pincode.trim()
             }
             await pb.collection('users').update(currentUser.id, {
-              phone,
+              phone: normalizePhone(phone),
               address: JSON.stringify(addressData),
             })
           } catch (pErr) {
@@ -303,7 +310,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
         try {
           const record = await pb.collection('bookings').create({
             fullName,
-            phone,
+            phone: normalizePhone(phone),
             location,
             service: `${currentRate.label} (${duration === 'annual' ? 'Annual Plan' : 'One-Time'})`,
             bhkSize: propertyType === 'commercial' ? 'Commercial' : bhkSize,
@@ -329,7 +336,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                 pincode: pincode.trim()
               }
               await pb.collection('users').update(currentUser.id, {
-                phone,
+                phone: normalizePhone(phone),
                 address: JSON.stringify(addressData),
               })
             } catch (pErr) {
@@ -347,7 +354,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
       },
       prefill: {
         name: fullName,
-        contact: phone,
+        contact: normalizePhone(phone),
         email: currentUser?.email || '',
       },
       theme: {

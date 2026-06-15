@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { pb } from '../lib/pocketbase'
+import { triggerNativeNotification } from '../lib/notifications'
 
 const displayAddress = (addressStr) => {
   if (!addressStr) return 'Not set'
@@ -93,6 +94,71 @@ export default function BackendDashboard() {
   const [globalServices, setGlobalServices] = useState([])
   const [globalRates, setGlobalRates] = useState({})
   const [servicesLoading, setServicesLoading] = useState(false)
+  
+  // Real-time notifications states
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false)
+  const [notificationPermission, setNotificationPermission] = useState(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+  )
+
+  const requestNotificationPermission = () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      Notification.requestPermission().then((permission) => {
+        setNotificationPermission(permission)
+        if (permission === 'granted') {
+          triggerNativeNotification(
+            'Pestyfi Notifications Enabled!',
+            'You will now receive real-time alerts for bookings, leads, and WhatsApp chats.'
+          )
+        }
+      })
+    }
+  }
+
+  const playChime = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      
+      osc.type = 'sine'
+      const now = ctx.currentTime
+      osc.frequency.setValueAtTime(587.33, now) // D5
+      gain.gain.setValueAtTime(0.15, now)
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15)
+      
+      osc.frequency.setValueAtTime(880, now + 0.1) // A5
+      gain.gain.setValueAtTime(0.15, now + 0.1)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4)
+      
+      osc.start(now)
+      osc.stop(now + 0.4)
+    } catch (err) {
+      console.error('Audio chime failed:', err)
+    }
+  }
+
+  const addNotification = (title, message, type = 'info', id = String(Date.now())) => {
+    const newNotif = {
+      id,
+      title,
+      message,
+      type,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      read: false
+    }
+    setNotifications(prev => [newNotif, ...prev].slice(0, 50))
+    setUnreadCount(prev => prev + 1)
+    playChime()
+    showToast(`${title}: ${message}`)
+
+    // Native browser push notification
+    triggerNativeNotification(title, message)
+  }
   
   // Forms states for service creation & editing
   const [editingService, setEditingService] = useState(null)
@@ -260,6 +326,70 @@ export default function BackendDashboard() {
     Promise.all([fetchBookings, fetchUsers, fetchCustomers, fetchLeads]).finally(() => {
       setLoading(false)
     })
+  }, [currentUser])
+
+  // Live Notifications Listener for Admins/Employees
+  useEffect(() => {
+    if (!currentUser) return
+    const isStaff = currentUser.role === 'admin' || currentUser.role === 'employee' || currentUser.role === 'superadmin'
+    if (!isStaff) return
+
+    // 1. Subscribe to new bookings
+    pb.collection('bookings').subscribe('*', (e) => {
+      if (e.action === 'create') {
+        const client = e.record.fullName || 'Anonymous Client'
+        const srv = e.record.service || 'Pest Treatment'
+        const dt = e.record.preferredDate ? new Date(e.record.preferredDate).toLocaleDateString() : 'unscheduled'
+        addNotification(
+          '🔔 New Booking',
+          `${client} booked ${srv} for ${dt}`,
+          'booking',
+          `booking_${e.record.id}`
+        )
+        setBookings(prev => {
+          if (prev.some(b => b.id === e.record.id)) return prev
+          return [e.record, ...prev]
+        })
+      }
+    }).catch(err => console.error('[Realtime bookings error]', err.message))
+
+    // 2. Subscribe to new leads
+    pb.collection('leads').subscribe('*', (e) => {
+      if (e.action === 'create') {
+        const leadName = e.record.fullName || 'New Lead'
+        const topic = e.record.subject || 'Inquiry'
+        addNotification(
+          '✉️ New Lead Received',
+          `${leadName} - "${topic}"`,
+          'lead',
+          `lead_${e.record.id}`
+        )
+        setLeadsList(prev => {
+          if (prev.some(l => l.id === e.record.id)) return prev
+          return [e.record, ...prev]
+        })
+      }
+    }).catch(err => console.error('[Realtime leads error]', err.message))
+
+    // 3. Subscribe to incoming whatsapp messages
+    pb.collection('whatsapp_messages').subscribe('*', (e) => {
+      if (e.action === 'create' && e.record.direction === 'incoming') {
+        const sender = e.record.senderName || 'WhatsApp User'
+        const text = e.record.body ? e.record.body.replace(/<[^>]*>/g, '') : '[Attachment/Media]'
+        addNotification(
+          '💬 WhatsApp Message',
+          `${sender}: "${text.slice(0, 45)}${text.length > 45 ? '...' : ''}"`,
+          'whatsapp',
+          `wa_${e.record.id}`
+        )
+      }
+    }).catch(err => console.error('[Realtime whatsapp error]', err.message))
+
+    return () => {
+      pb.collection('bookings').unsubscribe('*').catch(() => {})
+      pb.collection('leads').unsubscribe('*').catch(() => {})
+      pb.collection('whatsapp_messages').unsubscribe('*').catch(() => {})
+    }
   }, [currentUser])
 
   // Login handler
@@ -978,6 +1108,66 @@ export default function BackendDashboard() {
             {currentUser.role}
           </span>
 
+          {/* Notification Bell Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowNotificationsDropdown(!showNotificationsDropdown)
+                setUnreadCount(0)
+              }}
+              className="relative p-2 text-cream/70 hover:text-cream hover:bg-white/5 rounded-full transition focus:outline-none"
+              aria-label="Notifications"
+            >
+              <svg className="w-5.5 h-5.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-urgent text-[9px] font-bold text-white ring-2 ring-forest">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotificationsDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowNotificationsDropdown(false)} />
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-premium border border-black/5 py-2 z-50 text-left overflow-hidden ring-1 ring-black/5">
+                  <div className="px-4 py-2 border-b border-black/5 flex justify-between items-center bg-cream/10">
+                    <span className="text-xs font-bold text-forest">Recent Notifications</span>
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setNotifications([])
+                          setUnreadCount(0)
+                        }}
+                        className="text-[10px] text-urgent hover:underline font-semibold"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto divide-y divide-black/5">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-ink/40">
+                        No notifications yet
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div key={n.id} className="p-3 hover:bg-cream/10 transition space-y-1">
+                          <div className="flex justify-between items-start">
+                            <span className="text-xs font-bold text-forest">{n.title}</span>
+                            <span className="text-[9px] text-ink/40">{n.time}</span>
+                          </div>
+                          <p className="text-[11px] text-ink/75 leading-normal">{n.message}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
           <a href="/" className="text-xs text-cream/70 hover:text-cream border border-white/10 rounded-lg px-2.5 py-1.5 transition">
             Home Site
           </a>
@@ -1000,6 +1190,22 @@ export default function BackendDashboard() {
         {success && (
           <div className="rounded-xl border border-eco/20 bg-eco/10 px-4 py-3 text-xs font-semibold text-green animate-pulse">
             {success}
+          </div>
+        )}
+
+        {/* Native Notification Request Ribbon */}
+        {notificationPermission === 'default' && (
+          <div className="rounded-xl border border-eco/25 bg-eco/10 p-4 text-xs font-semibold text-forest flex flex-wrap justify-between items-center gap-3 ring-1 ring-eco/10">
+            <div className="flex items-center gap-2.5">
+              <span className="text-base animate-pulse">🔔</span>
+              <span>Enable native system notifications to receive instant alert popups when new bookings, leads, or WhatsApp messages arrive.</span>
+            </div>
+            <button
+              onClick={requestNotificationPermission}
+              className="bg-forest text-cream px-3 py-1.5 rounded-lg hover:bg-green font-bold transition whitespace-nowrap shadow-sm"
+            >
+              Enable Notifications
+            </button>
           </div>
         )}
 
@@ -2547,6 +2753,10 @@ function WhatsAppChatsPanel() {
           if (prev.some((m) => m.id === e.record.id)) return prev
           return [...prev, e.record]
         })
+      } else if (e.action === 'update') {
+        setMessages((prev) => {
+          return prev.map((m) => (m.id === e.record.id ? e.record : m))
+        })
       }
     }).catch(err => console.error('Subscription error:', err.message))
 
@@ -2570,6 +2780,7 @@ function WhatsAppChatsPanel() {
         senderName: msg.senderName || '',
         messages: [],
         latestMessage: null,
+        unreadCount: 0,
       }
     }
     if (msg.senderName && !conversationsMap[phone].senderName) {
@@ -2577,7 +2788,34 @@ function WhatsAppChatsPanel() {
     }
     conversationsMap[phone].messages.push(msg)
     conversationsMap[phone].latestMessage = msg
+    if (msg.direction === 'incoming' && msg.read === false) {
+      conversationsMap[phone].unreadCount += 1
+    }
   })
+
+  // Function to mark incoming messages in active conversation as read
+  const markAsRead = async (phone) => {
+    const unreadMsgs = conversationsMap[phone]?.messages.filter(m => m.direction === 'incoming' && m.read === false) || []
+    if (unreadMsgs.length === 0) return
+    try {
+      await Promise.all(unreadMsgs.map(m => pb.collection('whatsapp_messages').update(m.id, { read: true })))
+      setMessages(prev => prev.map(m => {
+        if (m.phone === phone && m.direction === 'incoming' && m.read === false) {
+          return { ...m, read: true }
+        }
+        return m
+      }))
+    } catch (err) {
+      console.error('[markAsRead failed]', err.message)
+    }
+  }
+
+  // Sync active chat read state
+  useEffect(() => {
+    if (selectedPhone) {
+      markAsRead(selectedPhone)
+    }
+  }, [selectedPhone, messages.length])
 
   // Filter conversations based on search query
   const filteredConversations = Object.values(conversationsMap)
@@ -2643,7 +2881,7 @@ function WhatsAppChatsPanel() {
   return (
     <div className="bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden flex flex-col md:flex-row h-[600px]">
       {/* Left Conversations Sidebar */}
-      <div className="w-full md:w-80 border-r border-black/5 flex flex-col h-1/3 md:h-full shrink-0 bg-cream/10">
+      <div className={`${selectedPhone ? 'hidden md:flex' : 'flex'} w-full md:w-80 border-r border-black/5 flex-col h-full shrink-0 bg-cream/10`}>
         <div className="p-4 border-b border-black/5">
           <h4 className="font-serif text-base font-bold text-forest mb-2.5">Chats</h4>
           <input
@@ -2684,22 +2922,29 @@ function WhatsAppChatsPanel() {
                 >
                   <div className="min-w-0 flex-1 pr-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-xs text-forest truncate block">
+                      <span className={`font-bold text-xs text-forest truncate block ${conv.unreadCount > 0 ? 'text-[#1d9d4f]' : ''}`}>
                         {conv.senderName || `WhatsApp User`}
                       </span>
-                      {isLatestIncoming && (
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber shrink-0" title="New message reply needed" />
+                      {conv.unreadCount > 0 && (
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#25D366] shrink-0 animate-ping" title="New Message" />
                       )}
                     </div>
                     <span className="text-[10px] text-ink/50 font-mono block mt-0.5">+{conv.phone}</span>
-                    <p className="text-[11px] text-ink/60 mt-1.5 truncate">
+                    <p className={`text-[11px] mt-1.5 truncate ${conv.unreadCount > 0 ? 'text-ink font-bold' : 'text-ink/60'}`}>
                       {latest?.direction === 'outgoing' ? 'You: ' : ''}
                       {latest?.body || ''}
                     </p>
                   </div>
-                  <span className="text-[9px] text-ink/40 font-semibold leading-none pt-0.5 whitespace-nowrap">
-                    {formatConversationDate(latest?.created)}
-                  </span>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span className="text-[9px] text-ink/40 font-semibold leading-none pt-0.5 whitespace-nowrap">
+                      {formatConversationDate(latest?.created)}
+                    </span>
+                    {conv.unreadCount > 0 && (
+                      <span className="bg-[#25D366] text-white text-[9px] font-bold h-4.5 w-4.5 rounded-full flex items-center justify-center shadow-sm leading-none animate-pulse">
+                        {conv.unreadCount}
+                      </span>
+                    )}
+                  </div>
                 </button>
               )
             })
@@ -2708,16 +2953,29 @@ function WhatsAppChatsPanel() {
       </div>
 
       {/* Right Chat History Viewport */}
-      <div className="flex-1 flex flex-col h-2/3 md:h-full min-w-0 bg-white">
+      <div className={`${selectedPhone ? 'flex' : 'hidden md:flex'} flex-1 flex-col h-full min-w-0 bg-white`}>
         {selectedPhone ? (
           <>
             {/* Top Info Bar */}
             <div className="p-4 border-b border-black/5 flex justify-between items-center bg-cream/5 shrink-0">
-              <div>
-                <h5 className="font-serif text-sm font-bold text-forest">
-                  {activeChat?.senderName || 'WhatsApp User'}
-                </h5>
-                <span className="text-[10px] font-mono text-ink/50 block mt-0.5">+{selectedPhone}</span>
+              <div className="flex items-center gap-3">
+                {/* Back button on mobile */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPhone(null)}
+                  className="md:hidden p-1.5 rounded-lg text-ink/65 hover:bg-black/5 shrink-0"
+                  aria-label="Back to chats list"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div>
+                  <h5 className="font-serif text-sm font-bold text-forest">
+                    {activeChat?.senderName || 'WhatsApp User'}
+                  </h5>
+                  <span className="text-[10px] font-mono text-ink/50 block mt-0.5">+{selectedPhone}</span>
+                </div>
               </div>
               <a
                 href={`tel:${selectedPhone}`}
