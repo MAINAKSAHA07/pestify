@@ -109,9 +109,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
       const data = await verifyWhatsAppOtp(phone, otp)
       
       const isNew = !data.record.name || 
-                    data.record.name.startsWith('WhatsApp ') || 
-                    !data.record.email || 
-                    data.record.email.endsWith('@pestyfi.local')
+                    !data.record.name.trim() ||
+                    data.record.name.startsWith('WhatsApp ')
 
       pb.authStore.save(data.token, data.record)
 
@@ -137,32 +136,25 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     setError('')
     setLoading(true)
     try {
-      const updateData = { name: newName.trim() }
-      
-      const emailVal = newEmail.trim()
-      const hasRealEmail = emailVal && !emailVal.endsWith('@pestyfi.local')
-      
-      if (hasRealEmail) {
-        const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
-        const emailRes = await fetch(`${API_BASE}/whatsapp/update-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': pb.authStore.token
-          },
-          body: JSON.stringify({
-            userId: pb.authStore.model.id,
-            email: emailVal
-          })
+      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const res = await fetch(`${API_BASE}/whatsapp/update-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': pb.authStore.token
+        },
+        body: JSON.stringify({
+          userId: pb.authStore.model.id,
+          name: newName.trim(),
+          email: newEmail.trim()
         })
-        const emailData = await emailRes.json()
-        if (!emailRes.ok) {
-          throw new Error(emailData.error || 'Failed to update email address.')
-        }
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update account profile.')
       }
-      
-      const updatedUser = await pb.collection('users').update(pb.authStore.model.id, updateData)
-      pb.authStore.save(pb.authStore.token, updatedUser)
+
+      pb.authStore.save(pb.authStore.token, data.record)
       
       onSuccess?.()
       onClose()

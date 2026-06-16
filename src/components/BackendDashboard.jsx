@@ -431,6 +431,18 @@ export default function BackendDashboard() {
       const updated = await pb.collection('bookings').update(bookingId, updateData)
       setBookings(prev => prev.map(b => b.id === bookingId ? updated : b))
       showToast('Status updated successfully!')
+
+      // Send status update WhatsApp update
+      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      fetch(`${API_BASE}/bookings/notify-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': pb.authStore.token
+        },
+        body: JSON.stringify({ bookingId, status: newStatus })
+      }).catch(err => console.warn('Failed to send status update notification:', err))
+
     } catch (err) {
       setError(err?.message || 'Failed to update status.')
     }
@@ -447,7 +459,7 @@ export default function BackendDashboard() {
     setEditPrice(booking.price || 0)
     setEditPaymentMethod(booking.paymentMethod || 'razorpay')
     setEditPropertyType(booking.propertyType || 'residential')
-    setEditStatus(booking.status || 'pending')
+    setEditStatus(String(booking.status || 'pending').toLowerCase())
     setEditPerformedAt(toDatetimeLocal(booking.performedAt))
     setEditAssignedName(booking.assignedName || '')
     setEditAssignedPhone(booking.assignedPhone || '')
@@ -489,6 +501,7 @@ export default function BackendDashboard() {
         return key
       }).join(', ')
 
+      const statusChanged = editStatus !== editingBooking.status
       const updated = await pb.collection('bookings').update(editingBooking.id, {
         fullName: editName,
         phone: editPhone,
@@ -507,6 +520,18 @@ export default function BackendDashboard() {
       setBookings(prev => prev.map(b => b.id === editingBooking.id ? updated : b))
       setEditingBooking(null)
       showToast('Booking updated successfully!')
+
+      if (statusChanged) {
+        const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+        fetch(`${API_BASE}/bookings/notify-status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': pb.authStore.token
+          },
+          body: JSON.stringify({ bookingId: updated.id, status: editStatus })
+        }).catch(err => console.warn('Failed to send status update notification:', err))
+      }
     } catch (err) {
       setError(err?.message || 'Failed to save booking updates.')
     }
@@ -1320,7 +1345,7 @@ export default function BackendDashboard() {
               {/* Status pills selector & Manual booking creator */}
               <div className="flex flex-wrap gap-3 items-center">
                 <div className="flex flex-wrap gap-1.5">
-                  {['All', 'Pending', 'Paid', 'Scheduled', 'In Progress', 'Completed', 'Cancelled'].map((status) => (
+                  {['All', 'Pending', 'Inspection Required', 'Paid', 'Scheduled', 'In Progress', 'Completed', 'Cancelled'].map((status) => (
                     <button
                       key={status}
                       onClick={() => setStatusFilter(status)}
@@ -1428,6 +1453,7 @@ export default function BackendDashboard() {
                               className="h-8 rounded border border-black/10 bg-white px-2 py-1 text-xs font-semibold text-forest focus:outline-none focus:ring-1 focus:ring-forest cursor-pointer"
                             >
                               <option value="pending">Pending</option>
+                              <option value="inspection required">Inspection Required</option>
                               <option value="paid">Paid (Unscheduled)</option>
                               <option value="scheduled">Scheduled</option>
                               <option value="in_progress">In Progress</option>
@@ -1871,7 +1897,7 @@ export default function BackendDashboard() {
             </div>
           </div>
         ) : activeTab === 'chats' && (currentUser.role === 'admin' || currentUser.role === 'superadmin') ? (
-          <WhatsAppChatsPanel />
+          <WhatsAppChatsPanel usersList={usersList} customersList={customersList} />
         ) : (
           <div className="py-16 text-center text-ink/45 font-medium bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
             Please select a valid tab to view details.
@@ -2037,6 +2063,7 @@ export default function BackendDashboard() {
                     className="rounded-lg border border-black/10 bg-white px-2 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink cursor-pointer"
                   >
                     <option value="pending">Pending</option>
+                    <option value="inspection required">Inspection Required</option>
                     <option value="paid">Paid</option>
                     <option value="scheduled">Scheduled</option>
                     <option value="in_progress">In Progress</option>
@@ -2719,7 +2746,7 @@ export default function BackendDashboard() {
   )
 }
 
-function WhatsAppChatsPanel() {
+function WhatsAppChatsPanel({ usersList = [], customersList = [] }) {
   const [messages, setMessages] = useState([])
   const [selectedPhone, setSelectedPhone] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -2727,17 +2754,117 @@ function WhatsAppChatsPanel() {
   const [sendLoading, setSendLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const messagesEndRef = useRef(null)
+  const [aiActive, setAiActive] = useState(true)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [globalAiActive, setGlobalAiActive] = useState(true)
+  const [globalAiLoading, setGlobalAiLoading] = useState(false)
 
-  // Fetch messages on mount
+  // Fetch Global AI configuration on mount
+  useEffect(() => {
+    const fetchGlobalAiConfig = async () => {
+      try {
+        const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+        const res = await fetch(`${API_BASE}/whatsapp/config`)
+        const data = await res.json()
+        if (res.ok) {
+          setGlobalAiActive(data.whatsappAiEnabled)
+        }
+      } catch (err) {
+        console.warn('Failed to fetch global AI config:', err)
+      }
+    }
+    fetchGlobalAiConfig()
+  }, [])
+
+  const handleToggleGlobalAi = async () => {
+    if (globalAiLoading) return
+    setGlobalAiLoading(true)
+    const nextState = !globalAiActive
+    try {
+      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const res = await fetch(`${API_BASE}/whatsapp/config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: pb.authStore.token
+        },
+        body: JSON.stringify({ enabled: nextState })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to toggle global AI state')
+      }
+      setGlobalAiActive(data.whatsappAiEnabled)
+    } catch (err) {
+      alert(err.message || 'Failed to save global AI state')
+    } finally {
+      setGlobalAiLoading(false)
+    }
+  }
+
+  // Fetch AI status when selectedPhone changes
+  useEffect(() => {
+    if (!selectedPhone) return
+    setAiLoading(true)
+    pb.collection('users')
+      .getFirstListItem(`phone="${selectedPhone}"`)
+      .then((user) => {
+        setAiActive(user.aiChatActive !== false)
+      })
+      .catch((err) => {
+        // If user doesn't exist, default to AI Active (true)
+        setAiActive(true)
+      })
+      .finally(() => {
+        setAiLoading(false)
+      })
+  }, [selectedPhone])
+
+  const handleToggleAi = async (activeState) => {
+    if (!selectedPhone || aiLoading) return
+    setAiLoading(true)
+    try {
+      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const res = await fetch(`${API_BASE}/whatsapp/toggle-ai`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: pb.authStore.token,
+        },
+        body: JSON.stringify({
+          to: selectedPhone,
+          active: activeState,
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        setAiActive(data.aiChatActive)
+      } else {
+        console.error('Failed to toggle AI:', data.error)
+      }
+    } catch (err) {
+      console.error('Failed to toggle AI:', err.message)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  // Fetch messages on mount (past 30 days window)
   useEffect(() => {
     setLoading(true)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const cutoffStr = thirtyDaysAgo.toISOString().replace('T', ' ').substring(0, 19)
+
     pb.collection('whatsapp_messages')
-      .getList(1, 1000, {
+      .getFullList({
+        filter: `created >= "${cutoffStr}"`,
         sort: '-created',
       })
       .then((res) => {
         // Reverse so it is chronological
-        setMessages(res.items.reverse())
+        setMessages(res.reverse())
         setLoading(false)
       })
       .catch((err) => {
@@ -2772,20 +2899,49 @@ function WhatsAppChatsPanel() {
 
   // Group messages into conversation threads
   const conversationsMap = {}
+
+  // Clean phone number helper
+  const cleanPhone = (p) => String(p).replace(/\D/g, '')
+
+  // Pre-populate with all database users/customers who have phone numbers
+  const allPossibleUsers = [...usersList, ...customersList]
+  const processedPhones = new Set()
+
+  allPossibleUsers.forEach((user) => {
+    if (!user.phone) return
+    const phone = cleanPhone(user.phone)
+    if (!phone || processedPhones.has(phone)) return
+
+    processedPhones.add(phone)
+    conversationsMap[phone] = {
+      phone,
+      senderName: user.name || user.fullName || (user.email ? user.email.split('@')[0] : '') || 'WhatsApp User',
+      messages: [],
+      latestMessage: null,
+      unreadCount: 0,
+    }
+  })
+
+  // Group messages into their conversations
   messages.forEach((msg) => {
-    const phone = msg.phone
+    if (!msg.phone) return
+    const phone = cleanPhone(msg.phone)
+
     if (!conversationsMap[phone]) {
       conversationsMap[phone] = {
         phone,
-        senderName: msg.senderName || '',
+        senderName: msg.senderName || 'WhatsApp User',
         messages: [],
         latestMessage: null,
         unreadCount: 0,
       }
     }
-    if (msg.senderName && !conversationsMap[phone].senderName) {
+
+    // Keep the more descriptive database name if available; fallback to WhatsApp profile name from message
+    if (msg.senderName && (!conversationsMap[phone].senderName || conversationsMap[phone].senderName === 'WhatsApp User')) {
       conversationsMap[phone].senderName = msg.senderName
     }
+
     conversationsMap[phone].messages.push(msg)
     conversationsMap[phone].latestMessage = msg
     if (msg.direction === 'incoming' && msg.read === false) {
@@ -2800,7 +2956,7 @@ function WhatsAppChatsPanel() {
     try {
       await Promise.all(unreadMsgs.map(m => pb.collection('whatsapp_messages').update(m.id, { read: true })))
       setMessages(prev => prev.map(m => {
-        if (m.phone === phone && m.direction === 'incoming' && m.read === false) {
+        if (cleanPhone(m.phone) === phone && m.direction === 'incoming' && m.read === false) {
           return { ...m, read: true }
         }
         return m
@@ -2827,7 +2983,14 @@ function WhatsAppChatsPanel() {
         (conv.latestMessage?.body || '').toLowerCase().includes(q)
       )
     })
-    .sort((a, b) => new Date(b.latestMessage.created) - new Date(a.latestMessage.created))
+    .sort((a, b) => {
+      const timeA = a.latestMessage ? new Date(a.latestMessage.created).getTime() : 0
+      const timeB = b.latestMessage ? new Date(b.latestMessage.created).getTime() : 0
+      if (timeA === 0 && timeB === 0) {
+        return a.senderName.localeCompare(b.senderName)
+      }
+      return timeB - timeA
+    })
 
   const activeChat = conversationsMap[selectedPhone]
   const activeMessages = activeChat ? activeChat.messages : []
@@ -2855,6 +3018,7 @@ function WhatsAppChatsPanel() {
       if (!res.ok) throw new Error(data.error || 'Failed to send message')
 
       setReplyText('')
+      setAiActive(false)
     } catch (err) {
       alert(err.message || 'Error sending message')
     } finally {
@@ -2891,6 +3055,25 @@ function WhatsAppChatsPanel() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full text-xs rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink placeholder:text-ink/30"
           />
+          <div className="mt-3 flex items-center justify-between border-t border-black/[0.03] pt-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-ink/65 flex items-center gap-1">
+              🤖 Global AI responder
+            </span>
+            <button
+              type="button"
+              onClick={handleToggleGlobalAi}
+              disabled={globalAiLoading}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                globalAiActive ? 'bg-[#25D366]' : 'bg-black/15'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  globalAiActive ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto divide-y divide-black/[0.03]">
@@ -2977,13 +3160,47 @@ function WhatsAppChatsPanel() {
                   <span className="text-[10px] font-mono text-ink/50 block mt-0.5">+{selectedPhone}</span>
                 </div>
               </div>
-              <a
-                href={`tel:${selectedPhone}`}
-                className="h-8 w-8 rounded-full bg-forest/5 hover:bg-forest/10 flex items-center justify-center text-sm transition"
-                title="Call client"
-              >
-                📞
-              </a>
+              <div className="flex items-center gap-3">
+                {aiActive ? (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-eco/10 px-2.5 py-1 text-xs font-bold text-green animate-pulse">
+                      <span className="h-1.5 w-1.5 rounded-full bg-eco animate-ping" />
+                      🤖 AI Active
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAi(false)}
+                      disabled={aiLoading}
+                      className="px-2.5 py-1 text-[10px] font-bold text-white bg-urgent hover:bg-red rounded-lg transition disabled:opacity-50 uppercase tracking-wide cursor-pointer shadow-sm shrink-0"
+                      title="Turn off AI auto-responder for this user"
+                    >
+                      {aiLoading ? '...' : 'Take Over'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-1 text-xs font-bold text-ink/50">
+                      👤 Human Mode
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAi(true)}
+                      disabled={aiLoading}
+                      className="px-2.5 py-1 text-[10px] font-bold text-forest border border-forest/20 hover:bg-forest/5 rounded-lg transition disabled:opacity-50 uppercase tracking-wide cursor-pointer shrink-0"
+                      title="Enable AI auto-responder for this user"
+                    >
+                      {aiLoading ? '...' : 'Enable AI'}
+                    </button>
+                  </div>
+                )}
+                <a
+                  href={`tel:${selectedPhone}`}
+                  className="h-8 w-8 rounded-full bg-forest/5 hover:bg-forest/10 flex items-center justify-center text-sm transition"
+                  title="Call client"
+                >
+                  📞
+                </a>
+              </div>
             </div>
 
             {/* Chat Messages */}

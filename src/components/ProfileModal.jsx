@@ -236,7 +236,29 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
     setSearchPhone('')
     setIsEditing(false)
 
-    if (!currentUser) return
+    if (!currentUser) {
+      const cachedPhone = localStorage.getItem('pestyfi_profile_phone')
+      if (cachedPhone) {
+        setLoading(true)
+        pb.collection('bookings')
+          .getList(1, 50, {
+            filter: `phone = "${normalizePhone(cachedPhone)}"`,
+            sort: '-created',
+          })
+          .then((res) => {
+            setBookings(res.items)
+          })
+          .catch((err) => {
+            console.error('Failed to retrieve bookings directly via cache phone:', err)
+          })
+          .finally(() => {
+            setLoading(false)
+          })
+      } else {
+        setLoading(false)
+      }
+      return
+    }
 
     setEditName(currentUser.name || '')
     setEditEmail(currentUser.email || '')
@@ -333,58 +355,30 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
     localStorage.setItem('pestyfi_profile_phone', editPhone)
 
     try {
-      const hasEmailChanged = editEmail.trim() !== (currentUser.email || '').trim()
-      if (hasEmailChanged) {
-        const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
-        const emailRes = await fetch(`${API_BASE}/whatsapp/update-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': pb.authStore.token
-          },
-          body: JSON.stringify({
-            userId: currentUser.id,
-            email: editEmail.trim()
-          })
+      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const updateRes = await fetch(`${API_BASE}/whatsapp/update-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': pb.authStore.token
+        },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          name: editName.trim(),
+          email: editEmail.trim(),
+          phone: editPhone,
+          address: serializedAddress
         })
-        const emailData = await emailRes.json()
-        if (!emailRes.ok) {
-          throw new Error(emailData.error || 'Failed to update email address.')
-        }
+      })
+      const updateData = await updateRes.json()
+      if (!updateRes.ok) {
+        throw new Error(updateData.error || 'Failed to update account profile.')
       }
 
-      // Step 1: Try saving name, phone, and address to PocketBase
-      const updatedRecord = await pb.collection('users').update(currentUser.id, {
-        name: editName,
-        phone: normalizePhone(editPhone),
-        address: serializedAddress,
-      })
-      onUserUpdate?.(updatedRecord)
+      onUserUpdate?.(updateData.record)
       setIsEditing(false)
     } catch (err) {
-      console.warn("PocketBase update failed with address/phone, trying fallback...", err)
-
-      try {
-        // Step 2: Try saving name and phone to PocketBase
-        const updatedRecord = await pb.collection('users').update(currentUser.id, {
-          name: editName,
-          phone: normalizePhone(editPhone),
-        })
-        onUserUpdate?.(updatedRecord)
-        setIsEditing(false)
-      } catch (err2) {
-        console.warn("Name/phone update failed, trying name-only fallback...", err2)
-        try {
-          // Step 3: Try saving only name
-          const updatedRecord = await pb.collection('users').update(currentUser.id, {
-            name: editName,
-          })
-          onUserUpdate?.(updatedRecord)
-          setIsEditing(false)
-        } catch (err3) {
-          setError(err3?.message || "Failed to save profile changes to server.")
-        }
-      }
+      setError(err?.message || "Failed to save profile changes to server.")
     } finally {
       setSaveLoading(false)
     }

@@ -233,6 +233,38 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
     setStep(step - 1)
   }
 
+  const autoRegister = async (bookingRecord) => {
+    try {
+      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      await fetch(`${API_BASE}/bookings/auto-register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          fullName,
+          email: localStorage.getItem('pestyfi_profile_email') || '',
+          flat,
+          building,
+          society,
+          area,
+          city,
+          pincode,
+          booking: bookingRecord ? {
+            id: bookingRecord.id,
+            service: bookingRecord.service,
+            price: bookingRecord.price,
+            paymentMethod: bookingRecord.paymentMethod,
+            preferredDate: bookingRecord.preferredDate,
+            preferredTime: bookingRecord.preferredTime,
+            status: bookingRecord.status
+          } : null
+        }),
+      })
+    } catch (err) {
+      console.warn('Auto registration failed:', err)
+    }
+  }
+
   const handlePayAndBook = async (e) => {
     if (e) e.preventDefault()
     setError('')
@@ -276,6 +308,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
           }
         }
 
+        await autoRegister(record)
         setSuccessData(record)
       } catch (err) {
         console.error('Error creating inspection booking in PocketBase:', err)
@@ -344,6 +377,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
             }
           }
 
+          await autoRegister(record)
           setSuccessData(record)
         } catch (err) {
           console.error('Error creating booking in PocketBase:', err)

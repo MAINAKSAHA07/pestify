@@ -391,12 +391,10 @@ function App() {
   const checkBookingStatusChanges = async () => {
     if (!currentUser) return
     const phoneClean = normalizePhone(currentUser.phone)
-    if (!phoneClean && !currentUser.email) return
+    if (!phoneClean) return
 
     try {
-      const filter = phoneClean 
-        ? `phone = "${phoneClean}" || email = "${currentUser.email}"`
-        : `email = "${currentUser.email}"`
+      const filter = `phone = "${phoneClean}"`
       
       const res = await pb.collection('bookings').getList(1, 100, {
         filter: filter,
@@ -586,7 +584,7 @@ function App() {
       const phoneClean = normalizePhone(currentUser.phone)
       
       pb.collection('bookings').subscribe('*', (e) => {
-        const isOwnBooking = e.record.phone === phoneClean || e.record.email === currentUser.email
+        const isOwnBooking = e.record.phone === phoneClean
         if (!isOwnBooking) return
 
         if (e.action === 'create') {
@@ -1690,7 +1688,10 @@ function App() {
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
-        onSuccess={() => setCurrentUser(pb.authStore.model)}
+        onSuccess={() => {
+          setCurrentUser(pb.authStore.model)
+          setIsProfileOpen(true)
+        }}
       />
 
       {/* Location Modal */}

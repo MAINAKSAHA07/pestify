@@ -30,3 +30,15 @@ pb_public/
 *.njsproj
 *.sln
 *.sw?
+
+# Private keys and certificates
+*.pem
+pestify.pem
+*.key
+*.cert
+
+# Scratch / Developer temporary scripts
+scratch/
+
+# Backend server directory
+server/
