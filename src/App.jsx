@@ -800,18 +800,29 @@ function App() {
   }, [locationInfo])
 
   useEffect(() => {
-    setupRevealAnimations()
-    setupMobileNavToggle()
-    setupLeadForm()
-
     const unsubscribe = pb.authStore.onChange((token, model) => {
       setCurrentUser(model)
     })
+    return () => unsubscribe()
+  }, [])
+
+  // Re-bind DOM helpers whenever the public shell remounts (leaving /backend clears .reveal observers)
+  useEffect(() => {
+    if (currentPath === '/backend') return undefined
+
+    let cancelled = false
+    let cleanups = []
+    const frame = requestAnimationFrame(() => {
+      if (cancelled) return
+      cleanups = [setupRevealAnimations(), setupMobileNavToggle(), setupLeadForm()]
+    })
 
     return () => {
-      unsubscribe()
+      cancelled = true
+      cancelAnimationFrame(frame)
+      for (const cleanup of cleanups) cleanup?.()
     }
-  }, [])
+  }, [currentPath])
 
   // Handle dynamic titles, canonical tags, and Open Graph tags for SEO
   useEffect(() => {
@@ -1000,38 +1011,44 @@ function App() {
   }
 
   return (
-    <div className="min-h-dvh bg-cream text-ink pb-20 md:pb-0 overflow-x-hidden">
+    <div className="min-h-dvh bg-cream text-ink pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0 overflow-x-hidden">
       <Loader />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">
         Skip to content
       </a>
 
-      {/* 1. Announcement Bar */}
-      <div className="bg-amber px-4 py-2 flex flex-col sm:flex-row items-center justify-center gap-2 text-center text-xs font-semibold text-forest sm:text-sm">
-        <span className="shrink-0 rounded-md bg-urgent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cream shadow-sm">
-          Limited Time Offer
-        </span>
-        <span>{ANNOUNCEMENT}</span>
-      </div>
+      {/* Sticky top chrome — compact; safe-area only once at the top edge */}
+      <div className="sticky top-0 z-50">
+        <div
+          className="bg-amber px-3 flex items-center justify-center gap-1.5 text-center text-[11px] font-semibold leading-tight text-forest sm:gap-2 sm:px-4 sm:text-xs"
+          style={{ paddingTop: 'max(0.35rem, env(safe-area-inset-top, 0px))', paddingBottom: '0.35rem' }}
+        >
+          <span className="shrink-0 rounded bg-urgent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cream">
+            Offer
+          </span>
+          <span className="min-w-0 truncate sm:whitespace-normal">
+            <span className="sm:hidden">20% OFF prepaid + free Home Kit ₹1,499</span>
+            <span className="hidden sm:inline">{ANNOUNCEMENT}</span>
+          </span>
+        </div>
 
-      {/* 2. Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-forest text-cream">
-        <div className="containerX relative flex items-center justify-between gap-2 py-3">
+        <header className="border-b border-white/10 bg-forest/95 text-cream backdrop-blur-md supports-[backdrop-filter]:bg-forest/85">
+          <div className="containerX relative flex h-12 items-center justify-between gap-2 sm:h-14">
           {/* Left: Hamburger Menu & Mobile Logo */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              className="navToggle rounded-lg p-2 hover:bg-white/10"
+              className="navToggle flex h-10 w-10 items-center justify-center rounded-lg hover:bg-white/10 active:scale-[0.97] active:bg-white/15"
               aria-expanded="false"
               aria-controls="navDrawer"
               aria-label="Open menu"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
-            <div className="flex items-center md:hidden ml-1">
-              <Logo onDark size="md" />
+            <div className="flex items-center md:hidden">
+              <Logo onDark size="sm" />
             </div>
           </div>
 
@@ -1041,14 +1058,14 @@ function App() {
           </div>
 
           {/* Right: Location & Profile */}
-          <div className="flex items-center gap-1.5 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2">
             {/* Location Selector */}
             <button
               onClick={() => setIsLocationOpen(true)}
-              className="flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-[11px] sm:px-2.5 sm:py-1.5 sm:text-xs font-semibold hover:bg-white/10 transition-all text-cream focus:outline-none ring-1 ring-white/5"
+              className="flex h-9 max-w-[7.5rem] items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 text-[11px] font-semibold text-cream hover:bg-white/10 active:scale-[0.97] focus:outline-none sm:max-w-none sm:px-2.5 sm:text-xs"
             >
-              <span>📍</span>
-              <span className="max-w-[70px] sm:max-w-none truncate">
+              <span className="shrink-0" aria-hidden="true">📍</span>
+              <span className="truncate">
                 {locationInfo ? (
                   locationInfo.serviceable ? (
                     <>
@@ -1065,22 +1082,19 @@ function App() {
                   'Location'
                 )}
               </span>
-              <svg className="h-3.5 w-3.5 text-cream/70 hidden sm:inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
             </button>
 
             {currentUser ? (
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-semibold ring-1 ring-white/25 hover:bg-white/15 transition-all focus:outline-none"
+                  className="flex h-9 max-w-[6.5rem] items-center gap-1 rounded-lg bg-white/10 px-2 text-[11px] font-semibold ring-1 ring-white/20 hover:bg-white/15 active:scale-[0.97] focus:outline-none sm:max-w-[10rem] sm:px-2.5 sm:text-xs"
                 >
-                  <span className="h-1.5 w-1.5 rounded-full bg-eco animate-pulse" />
-                  <span className="max-w-[50px] sm:max-w-[150px] truncate">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-eco" />
+                  <span className="truncate">
                     {currentUser.name || currentUser.email}
                   </span>
-                  <svg className={`h-3.5 w-3.5 text-cream/70 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className={`h-3 w-3 shrink-0 text-cream/70 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -1109,10 +1123,9 @@ function App() {
                         <button
                           onClick={() => {
                             setIsDropdownOpen(false)
-                            window.history.pushState({}, '', '/backend')
-                            window.dispatchEvent(new PopStateEvent('popstate'))
+                            navigateTo('/backend', { scroll: false })
                           }}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors"
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/90 hover:bg-white/10 transition-colors active:scale-[0.98]"
                         >
                           <svg className="h-4 w-4 text-eco" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -1136,7 +1149,7 @@ function App() {
             ) : (
               <button
                 onClick={() => setIsAuthOpen(true)}
-                className="rounded-lg px-2 py-1 text-[11px] font-semibold ring-1 ring-white/20 hover:bg-white/10 sm:px-3 sm:py-1.5 sm:text-sm transition-all focus:outline-none"
+                className="flex h-9 items-center rounded-lg px-2.5 text-[11px] font-semibold ring-1 ring-white/20 hover:bg-white/10 active:scale-[0.97] focus:outline-none sm:text-xs"
               >
                 Login
               </button>
@@ -1144,12 +1157,13 @@ function App() {
           </div>
         </div>
       </header>
+      </div>
 
       {/* Drawer */}
       <div id="navOverlay" className="navOverlay fixed inset-0 z-[60] hidden bg-black/50" aria-hidden="true" />
       <nav
         id="navDrawer"
-        className="navDrawer fixed left-0 top-0 z-[70] flex h-full w-72 -translate-x-full flex-col bg-forest text-cream shadow-lift transition-transform duration-300"
+        className="navDrawer fixed left-0 top-0 z-[70] flex h-full w-72 -translate-x-full flex-col bg-forest text-cream shadow-lift transition-transform duration-300 pt-[env(safe-area-inset-top)]"
         aria-label="Mobile menu"
       >
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
@@ -1934,29 +1948,35 @@ function App() {
         </div>
       )}
 
-      {/* Sticky Mobile/Tablet CTA */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/5 px-4 pt-4 pb-[calc(12px+env(safe-area-inset-bottom))] flex flex-col gap-2.5 lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-        <div className="flex gap-3">
+      {/* Sticky mobile CTA — compact toolbar; home-indicator clear via safe-area */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 border-t border-black/5 bg-white/92 px-3 pt-2.5 backdrop-blur-xl supports-[backdrop-filter]:bg-white/80 lg:hidden"
+        style={{
+          paddingBottom: 'calc(0.625rem + env(safe-area-inset-bottom, 0px))',
+          boxShadow: '0 -8px 24px rgba(0,0,0,0.06)',
+        }}
+      >
+        <div className="flex gap-2">
           <a
             href={CONTACT.waHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 h-[52px] rounded-xl bg-cream/30 hover:bg-cream/50 border border-black/5 flex items-center justify-center gap-2 text-xs font-bold text-forest transition"
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-black/8 bg-cream/40 text-xs font-bold text-forest transition active:scale-[0.97] active:bg-cream/60"
           >
-            <span className="text-sm">💬</span>
+            <span className="text-sm" aria-hidden="true">💬</span>
             Talk to Agent
           </a>
           <a
             href="/book/service"
-            className="flex-1 h-[52px] rounded-xl bg-forest hover:bg-forest/95 flex items-center justify-center gap-2 text-xs font-bold text-white transition shadow-sm"
+            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-forest text-xs font-bold text-white shadow-sm transition active:scale-[0.97] active:bg-forest/90"
           >
-            <span className="text-sm">📅</span>
+            <span className="text-sm" aria-hidden="true">📅</span>
             Book Now
           </a>
         </div>
-        <div className="flex items-center justify-center gap-1.5 text-[10px] text-ink/50 font-medium">
-          <span>🔒 All payments are secured by</span>
-          <svg className="h-3.5 w-auto" fill="#3395FF" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <div className="mt-1.5 flex items-center justify-center gap-1 pb-0.5 text-[9px] font-medium leading-none text-ink/45">
+          <span>🔒 Secured by</span>
+          <svg className="h-3 w-auto" fill="#3395FF" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <title>Razorpay</title>
             <path d="M22.436 0l-11.91 7.773-1.174 4.276 6.625-4.297L11.65 24h4.391l6.395-24zM14.26 10.098L3.389 17.166 1.564 24h9.008l3.688-13.902Z"/>
           </svg>
@@ -1979,7 +1999,8 @@ function App() {
             }
           `}</style>
           <div 
-            className="fixed top-4 right-4 z-[9999] max-w-sm w-full bg-white/95 border border-forest/10 rounded-2xl shadow-premium p-4 pointer-events-auto transition-all duration-300 toast-animate cursor-pointer flex gap-3 backdrop-blur-md ring-1 ring-black/5"
+            className="fixed right-4 z-[9999] max-w-sm w-full bg-white/95 border border-forest/10 rounded-2xl shadow-premium p-4 pointer-events-auto transition-all duration-300 toast-animate cursor-pointer flex gap-3 backdrop-blur-md ring-1 ring-black/5"
+            style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
             onClick={() => setAppNotification(null)}
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-forest/10 text-forest text-lg">

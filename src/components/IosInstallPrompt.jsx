@@ -95,7 +95,7 @@ export default function IosInstallPrompt() {
             animation: iosSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           }
         `}</style>
-        <div className="fixed bottom-0 left-0 right-0 z-[100] p-4 ios-prompt-animate">
+        <div className="fixed bottom-0 left-0 right-0 z-[100] p-4 ios-prompt-animate" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           {/* Background Mask/Glow */}
           <div className="absolute inset-0 bg-gradient-to-t from-forest/30 to-transparent pointer-events-none" />
 
@@ -166,7 +166,7 @@ export default function IosInstallPrompt() {
           animation: iosSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
-      <div className="fixed bottom-0 left-0 right-0 z-[100] p-4 ios-prompt-animate">
+      <div className="fixed bottom-0 left-0 right-0 z-[100] p-4 ios-prompt-animate" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         {/* Background Mask/Glow */}
         <div className="absolute inset-0 bg-gradient-to-t from-forest/30 to-transparent pointer-events-none" />
 

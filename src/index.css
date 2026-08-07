@@ -5,6 +5,7 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    min-height: 100dvh;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -15,6 +16,11 @@
 
   body {
     @apply bg-cream text-ink font-sans antialiased;
+    min-height: 100dvh;
+  }
+
+  #root {
+    min-height: 100dvh;
   }
 }
 

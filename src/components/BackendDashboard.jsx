@@ -4,6 +4,12 @@ import { triggerNativeNotification } from '../lib/notifications'
 import { enablePushNotifications, syncPushSubscriptionIfGranted } from '../lib/pushNotifications'
 import { getApiBaseUrl, parseApiResponse } from '../lib/api'
 import { normalizePhone } from '../lib/phone'
+import { navigateTo } from '../lib/routing'
+
+function goPublicHome(e) {
+  e?.preventDefault?.()
+  navigateTo('/', { scroll: true })
+}
 
 const displayAddress = (addressStr) => {
   if (!addressStr) return 'Not set'
@@ -1254,7 +1260,7 @@ export default function BackendDashboard() {
   // Render Login view if unauthenticated
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-forest flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-forest flex items-center justify-center p-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
         <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-premium border border-black/5 flex flex-col">
           <div className="h-1.5 w-full bg-gradient-to-r from-eco via-amber to-urgent shrink-0" />
           <div className="p-8">
@@ -1305,7 +1311,7 @@ export default function BackendDashboard() {
             </form>
 
             <div className="mt-6 border-t border-black/5 pt-4 text-center">
-              <a href="/" className="text-xs text-forest font-bold hover:underline">
+              <a href="/" onClick={goPublicHome} className="text-xs text-forest font-bold hover:underline active:opacity-70">
                 ← Return to Public Website
               </a>
             </div>
@@ -1319,7 +1325,7 @@ export default function BackendDashboard() {
   const isStaff = currentUser.role === 'admin' || currentUser.role === 'employee' || currentUser.role === 'superadmin'
   if (!isStaff) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-cream flex items-center justify-center p-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
         <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-premium border border-urgent/10 flex flex-col text-center">
           <div className="h-1.5 w-full bg-urgent shrink-0" />
           <div className="p-8 space-y-4">
@@ -1335,7 +1341,7 @@ export default function BackendDashboard() {
               <button onClick={handleLogout} className="btnGhost flex-1 py-2 text-xs">
                 Sign Out
               </button>
-              <a href="/" className="btnPrimary flex-1 py-2 text-xs block text-center">
+              <a href="/" onClick={goPublicHome} className="btnPrimary flex-1 py-2 text-xs block text-center active:scale-[0.98]">
                 Home Page
               </a>
             </div>
@@ -1346,9 +1352,12 @@ export default function BackendDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-cream/30 text-ink">
+    <div className="min-h-dvh bg-cream/30 text-ink">
       {/* Top Banner Header */}
-      <header className="sticky top-0 z-50 bg-forest text-cream border-b border-white/5 py-4 px-6 shadow-md flex flex-wrap gap-4 items-center justify-between">
+      <header
+        className="sticky top-0 z-50 bg-forest/95 text-cream border-b border-white/5 py-4 px-6 shadow-md flex flex-wrap gap-4 items-center justify-between backdrop-blur-md"
+        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+      >
         <div className="flex items-center gap-2">
           <span className="text-2xl">🛡️</span>
           <div>
@@ -1433,7 +1442,7 @@ export default function BackendDashboard() {
             )}
           </div>
 
-          <a href="/" className="text-xs text-cream/70 hover:text-cream border border-white/10 rounded-lg px-2.5 py-1.5 transition">
+          <a href="/" onClick={goPublicHome} className="text-xs text-cream/70 hover:text-cream border border-white/10 rounded-lg px-2.5 py-1.5 transition active:scale-[0.98]">
             Home Site
           </a>
 

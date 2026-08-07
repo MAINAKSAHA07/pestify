@@ -18,8 +18,8 @@ export default function Logo({ className = '', size = 'md', onDark = false }) {
       <img
         src="/logo.webp"
         alt="Pestyfi Eco Solutions"
-        className={`${heights[size]} w-auto max-w-[130px] object-contain object-left sm:max-w-[150px] ${
-          onDark ? 'rounded-lg bg-white px-2 py-1' : ''
+        className={`${heights[size]} w-auto max-w-[110px] object-contain object-left sm:max-w-[150px] ${
+          onDark ? 'rounded-md bg-white px-1.5 py-0.5' : ''
         }`}
         width={150}
         height={40}
