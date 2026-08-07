@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { setupLeadForm, setupMobileNavToggle, setupRevealAnimations } from './hooks'
 import { CONTACT } from './site'
 import Logo from './components/Logo'
@@ -13,6 +13,21 @@ import BackendDashboard from './components/BackendDashboard'
 import SalesNotifier from './components/SalesNotifier'
 import IosInstallPrompt from './components/IosInstallPrompt'
 import { triggerNativeNotification } from './lib/notifications'
+import { syncPushSubscriptionIfGranted } from './lib/pushNotifications'
+import {
+  parseLocation,
+  navigateTo,
+  buildBookUrl,
+  isBookPath,
+  getBookSlug,
+  getServiceSeoMeta,
+  getSectionIdFromPath,
+  isHomeSectionPath,
+  migrateHashToPath,
+  lockSectionTracking,
+  trackRouteView,
+} from './lib/routing'
+import { useSectionTracking, handleSiteLinkClick } from './hooks/useSectionTracking'
 import {
   ANNOUNCEMENT,
   NAV_LINKS,
@@ -40,7 +55,7 @@ function SectionHead({ title, subtitle, light }) {
   )
 }
 
-function Cta({ children, href = '#book', variant = 'primary', className = '' }) {
+function Cta({ children, href = '/book/service', variant = 'primary', className = '' }) {
   const cls = variant === 'ghost' ? 'btnGhost' : variant === 'light' ? 'btnLight' : 'btnPrimary'
   return (
     <a href={href} className={`${cls} ${className}`}>
@@ -339,7 +354,12 @@ function App() {
   const [currentUser, setCurrentUser] = useState(pb.authStore.model)
   const [isAuthOpen, setIsAuthOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [currentPath, setCurrentPath] = useState(window.location.pathname)
+  const [currentPath, setCurrentPath] = useState(() => {
+    migrateHashToPath()
+    return window.location.pathname
+  })
+  const [bookSlug, setBookSlug] = useState(() => getBookSlug())
+  const [preferredServiceId, setPreferredServiceId] = useState(() => parseLocation().serviceId)
   const [appNotification, setAppNotification] = useState(null)
   const audioCtxRef = useRef(null)
 
@@ -350,6 +370,12 @@ function App() {
     }, 5000)
     return () => clearTimeout(timer)
   }, [appNotification])
+
+  // Re-register push subscription when user logs in (links device to account)
+  useEffect(() => {
+    if (!currentUser) return
+    syncPushSubscriptionIfGranted().catch(() => {})
+  }, [currentUser?.id])
 
   const playChime = () => {
     try {
@@ -632,77 +658,137 @@ function App() {
     }
   }, [currentUser?.id, currentUser?.role])
 
-  const handleNavigate = (path) => {
-    window.history.pushState({}, '', path)
-    window.dispatchEvent(new PopStateEvent('popstate'))
-    window.scrollTo(0, 0)
-  }
+  const syncLocationState = useCallback(() => {
+    migrateHashToPath()
+    const route = parseLocation()
+    const isPublicShell =
+      isBookPath(route.pathname) || Boolean(route.serviceId)
+    setCurrentPath(isPublicShell ? (route.serviceId ? route.pathname : '/') : route.pathname)
+    setPreferredServiceId(route.serviceId || null)
 
-  useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPath(window.location.pathname)
+    if (route.bookSlug) {
+      setBookSlug(route.bookSlug)
+      if (window.innerWidth < 1024) {
+        setIsBookingOpen(true)
+      }
+      requestAnimationFrame(() => {
+        document.getElementById('book')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    } else if (route.serviceId) {
+      setBookSlug('service')
+      // Mobile: open book sheet. Desktop: scroll to inline wizard only (no double jump).
+      if (window.innerWidth < 1024) {
+        setIsBookingOpen(true)
+      }
+      requestAnimationFrame(() => {
+        document.getElementById('book')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    } else if (route.section && route.section !== 'top') {
+      lockSectionTracking()
+      requestAnimationFrame(() => {
+        document.getElementById(route.section)?.scrollIntoView({ behavior: 'auto', block: 'start' })
+      })
     }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  // Handle client-side navigation for hash links on subpages and compliance links
-  useEffect(() => {
-    const handleGlobalClicks = (e) => {
-      const anchor = e.target.closest('a')
-      if (!anchor) return
-
-      const href = anchor.getAttribute('href')
-      if (!href) return
-
-      // Handle hash links when on a subpage (e.g. /privacy, /deletion)
-      if (href.startsWith('#')) {
-        if (window.location.pathname !== '/') {
-          e.preventDefault()
-          window.history.pushState({}, '', '/')
-          window.dispatchEvent(new PopStateEvent('popstate'))
-          setTimeout(() => {
-            const target = document.querySelector(href)
-            if (target) {
-              target.scrollIntoView({ behavior: 'smooth' })
-            }
-          }, 100)
-        }
-      }
-      // Handle links specifically to /privacy, /deletion or /deletion-status client-side
-      else if (href === '/privacy' || href === '/deletion' || href.startsWith('/deletion-status')) {
-        e.preventDefault()
-        handleNavigate(href)
-      }
-    }
-    document.addEventListener('click', handleGlobalClicks)
-    return () => document.removeEventListener('click', handleGlobalClicks)
+  const handleBookRouteChange = useCallback((slug) => {
+    setBookSlug(slug)
+    navigateTo(buildBookUrl(slug), {
+      replace: slug === 'payment-processing',
+      scroll: false,
+    })
   }, [])
+
+  const closeBookingModal = useCallback(() => {
+    setIsBookingOpen(false)
+    navigateTo('/', { replace: true, scroll: false })
+    lockSectionTracking()
+    requestAnimationFrame(() => {
+      document.getElementById('book')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [])
+
+  const openBookingFlow = useCallback((slug = 'service') => {
+    setBookSlug(slug)
+    if (window.innerWidth < 1024) {
+      setIsBookingOpen(true)
+    }
+    navigateTo(buildBookUrl(slug))
+  }, [])
+
+  useEffect(() => {
+    syncLocationState()
+    trackRouteView(parseLocation().trackingPath)
+  }, [syncLocationState])
+
+  useSectionTracking(isHomeSectionPath() && !isBookPath())
   const [locationInfo, setLocationInfo] = useState(() => {
     const saved = localStorage.getItem('pestyfi_location')
     return saved ? JSON.parse(saved) : null
   })
   const [isLocationOpen, setIsLocationOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [isBookingOpen, setIsBookingOpen] = useState(false)
+  const [isBookingOpen, setIsBookingOpen] = useState(() => isBookPath() && window.innerWidth < 1024)
 
-  // Global click listener to intercept "#book" links and open modal on mobile
+  const handleNavigate = (path) => {
+    navigateTo(path)
+    setCurrentPath(path)
+  }
+
+  useEffect(() => {
+    const onPopState = () => syncLocationState()
+    const onHashChange = () => syncLocationState()
+    window.addEventListener('popstate', onPopState)
+    window.addEventListener('hashchange', onHashChange)
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+      window.removeEventListener('hashchange', onHashChange)
+    }
+  }, [syncLocationState])
+
+  // Global link handler for section + booking URLs
   useEffect(() => {
     const handleGlobalClick = (e) => {
       const anchor = e.target.closest('a')
-      if (anchor && anchor.getAttribute('href') === '#book' && window.innerWidth < 1024) {
+      if (!anchor) return
+
+      const href = anchor.getAttribute('href')
+      if (!href) return
+
+      if (href === '/privacy' || href === '/deletion' || href.startsWith('/deletion-status')) {
         e.preventDefault()
-        setIsBookingOpen(true)
-        // Auto-close navigation drawer if open
-        const navCloseBtn = document.querySelector('.navClose')
-        if (navCloseBtn) {
-          navCloseBtn.click()
+        handleNavigate(href)
+        return
+      }
+
+      if (href === '#book' || href === '/book' || href.startsWith('/book/')) {
+        e.preventDefault()
+        const slug = href.replace(/^#book\/?/, '').replace(/^\/book\/?/, '') || 'service'
+        openBookingFlow(slug === 'book' ? 'service' : slug)
+        if (window.innerWidth < 1024) {
+          document.querySelector('.navClose')?.click()
         }
+        return
+      }
+
+      // Skip-to-content remains a true in-page fragment (not indexed)
+      if (href === '#main') return
+
+      if (href.startsWith('#') || (href.startsWith('/') && isHomeSectionPath(href))) {
+        handleSiteLinkClick(e, href)
+        document.querySelector('.navClose')?.click()
+        return
+      }
+
+      if (handleSiteLinkClick(e, href) && href.startsWith('/book') && window.innerWidth < 1024) {
+        setIsBookingOpen(true)
+        document.querySelector('.navClose')?.click()
       }
     }
+
     document.addEventListener('click', handleGlobalClick)
     return () => document.removeEventListener('click', handleGlobalClick)
-  }, [])
+  }, [openBookingFlow])
 
   useEffect(() => {
     if (!locationInfo) {
@@ -727,8 +813,145 @@ function App() {
     }
   }, [])
 
+  // Handle dynamic titles, canonical tags, and Open Graph tags for SEO
+  useEffect(() => {
+    let title = "Pest Control Services in Mumbai with Odourless Treatments & 365 Day Support"
+    let description = "Professional pest control services in Mumbai at 20% off. Book online in minutes. Cockroaches, bedbugs, termite, rodents, mosquito odourless, child and pet safe treatments"
+    let canonical = "https://pestyfi.com"
+    let robotsContent = 'index, follow'
+
+    const serviceMeta = getServiceSeoMeta(currentPath)
+
+    if (currentPath === '/privacy') {
+      title = "Privacy Policy - Pestyfi Eco Solutions"
+      description = "Read Pestyfi's privacy policy to understand how we collect, use, and protect your personal information."
+      canonical = "https://pestyfi.com/privacy"
+    } else if (currentPath === '/deletion') {
+      title = "Data Deletion Policy - Pestyfi Eco Solutions"
+      description = "Request data deletion. Learn how to remove your profile, addresses, and third-party links from Pestyfi."
+      canonical = "https://pestyfi.com/deletion"
+    } else if (currentPath === '/deletion-status' || currentPath.startsWith('/deletion-status')) {
+      title = "Data Deletion Status - Pestyfi Eco Solutions"
+      description = "Check the status of your data deletion request."
+      canonical = "https://pestyfi.com/deletion-status"
+      robotsContent = 'noindex, nofollow'
+    } else if (currentPath === '/backend') {
+      title = "Admin Dashboard - Pestyfi"
+      description = "Internal administrator panel for managing bookings and communications."
+      canonical = "https://pestyfi.com/backend"
+      robotsContent = 'noindex, nofollow'
+    } else if (serviceMeta) {
+      title = `${serviceMeta.title} | Pestyfi`
+      description = serviceMeta.description
+      canonical = `https://pestyfi.com${currentPath}`
+    } else if (isBookPath()) {
+      const slug = getBookSlug()
+      const bookTitles = {
+        service: 'Book Pest Control — Select Service',
+        contact: 'Book Pest Control — Contact Details',
+        checkout: 'Book Pest Control — Checkout',
+        payment: 'Book Pest Control — Payment',
+        'payment-processing': 'Book Pest Control — Processing Payment',
+        success: 'Booking Confirmed — Pestyfi',
+        'inspection-requested': 'Inspection Requested — Pestyfi',
+      }
+      title = `${bookTitles[slug] || 'Book Pest Control'} | Pestyfi`
+      description = 'Complete your Pestyfi pest control booking online with secure checkout.'
+      canonical = `https://pestyfi.com/book/${slug}`
+      if (slug === 'payment' || slug === 'payment-processing' || slug === 'success' || slug === 'inspection-requested') {
+        robotsContent = 'noindex, follow'
+      }
+    } else if (getSectionIdFromPath(currentPath) && currentPath !== '/') {
+      // Homepage section deep-links share one canonical homepage URL (no hash, no thin duplicates)
+      canonical = 'https://pestyfi.com'
+    }
+
+    document.title = title
+
+    // Update Meta Description
+    let descMeta = document.querySelector('meta[name="description"]')
+    if (descMeta) {
+      descMeta.setAttribute('content', description)
+    } else {
+      descMeta = document.createElement('meta')
+      descMeta.name = "description"
+      descMeta.content = description
+      document.head.appendChild(descMeta)
+    }
+
+    // Robots directive (private routes stay out of search / AI indexes)
+    let robotsMeta = document.querySelector('meta[name="robots"]')
+    if (robotsMeta) {
+      robotsMeta.setAttribute('content', robotsContent)
+    } else {
+      robotsMeta = document.createElement('meta')
+      robotsMeta.name = 'robots'
+      robotsMeta.content = robotsContent
+      document.head.appendChild(robotsMeta)
+    }
+
+    // Update Canonical URL
+    let canonicalLink = document.querySelector('link[rel="canonical"]')
+    if (canonicalLink) {
+      canonicalLink.setAttribute('href', canonical)
+    } else {
+      canonicalLink = document.createElement('link')
+      canonicalLink.rel = "canonical"
+      canonicalLink.href = canonical
+      document.head.appendChild(canonicalLink)
+    }
+
+    // Update Open Graph URL
+    let ogUrl = document.querySelector('meta[property="og:url"]')
+    if (ogUrl) {
+      ogUrl.setAttribute('content', canonical)
+    } else {
+      ogUrl = document.createElement('meta')
+      ogUrl.setAttribute('property', 'og:url')
+      ogUrl.content = canonical
+      document.head.appendChild(ogUrl)
+    }
+
+    // Update Open Graph Title
+    let ogTitle = document.querySelector('meta[property="og:title"]')
+    if (ogTitle) {
+      ogTitle.setAttribute('content', title)
+    } else {
+      ogTitle = document.createElement('meta')
+      ogTitle.setAttribute('property', 'og:title')
+      ogTitle.content = title
+      document.head.appendChild(ogTitle)
+    }
+
+    // Update Open Graph Description
+    let ogDesc = document.querySelector('meta[property="og:description"]')
+    if (ogDesc) {
+      ogDesc.setAttribute('content', description)
+    } else {
+      ogDesc = document.createElement('meta')
+      ogDesc.setAttribute('property', 'og:description')
+      ogDesc.content = description
+      document.head.appendChild(ogDesc)
+    }
+
+    // Update Twitter Title
+    let twitterTitle = document.querySelector('meta[name="twitter:title"]')
+    if (twitterTitle) {
+      twitterTitle.setAttribute('content', title)
+    }
+
+    // Update Twitter Description
+    let twitterDesc = document.querySelector('meta[name="twitter:description"]')
+    if (twitterDesc) {
+      twitterDesc.setAttribute('content', description)
+    }
+  }, [currentPath, bookSlug])
+
   const handleSignOut = () => {
     pb.authStore.clear()
+    localStorage.removeItem('pestyfi_profile_phone')
+    localStorage.removeItem('pestyfi_profile_address')
+    localStorage.removeItem('pestyfi_booking_statuses')
     setIsDropdownOpen(false)
   }
 
@@ -969,7 +1192,7 @@ function App() {
             className="pointer-events-none absolute inset-0 opacity-15"
             aria-hidden="true"
             style={{
-              backgroundImage: "url('/hero/hero image /final/1.webp')",
+              backgroundImage: "url('/hero/hero_image/final/1.webp')",
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
@@ -987,14 +1210,14 @@ function App() {
                   <ScrollRevealText text={HERO.subheadline} activeClass="text-cream" />
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
-                  <Cta href="#book" className="px-6 py-3 text-base">{HERO.cta1}</Cta>
+                  <Cta href="/book/service" className="px-6 py-3 text-base">{HERO.cta1}</Cta>
                   {/* <Cta href={CONTACT.waHref} variant="ghost" className="px-6 py-3 text-base">{HERO.cta2}</Cta> */}
                 </div>
               </div>
               <div className="reveal hidden md:block md:col-span-5">
                 <div className="relative p-2 rounded-2xl bg-white/5 ring-1 ring-white/10 shadow-premium overflow-hidden">
                   <img
-                    src="/hero/hero image /final/1.webp"
+                    src="/hero/hero_image/final/1.webp"
                     alt="Pestyfi Eco-friendly Protective Shield"
                     className="w-full rounded-xl shadow-lift border border-white/5 object-cover aspect-[4/3] transition-transform duration-500 hover:scale-[1.02]"
                   />
@@ -1022,52 +1245,76 @@ function App() {
           </div>
         </section>
 
-        {/* 3.5 Top Booking Wizard */}
-        <section className="bg-cream py-16 border-b border-black/5">
-          <div className="containerX grid gap-10 md:grid-cols-12 items-start">
-            <div className="reveal md:col-span-5 space-y-4">
-              <span className="pillX bg-forest/10 text-forest border-forest/20 uppercase tracking-wider text-[11px] font-bold">
-                Fast Booking
-              </span>
-              <h2 className="font-serif text-3xl font-semibold text-forest leading-tight md:text-4xl">
-                Book Your Pest Protection Today
-              </h2>
-              <p className="text-sm leading-relaxed text-ink/75">
-                Get 20% OFF on prepaid bookings + free Pestyfi Home Protection Kit worth ₹1,499. Serving Mumbai, Navi Mumbai & Thane.
-              </p>
-              <div className="flex flex-col gap-2 pt-2 text-xs font-semibold text-forest">
-                <div className="flex items-center gap-2">
-                  <span className="text-eco text-sm">✓</span> 20% Off on Prepaid Bookings
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-eco text-sm">✓</span> 100% Odourless & Safe Treatments
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-eco text-sm">✓</span> Certified Hygiene Experts
+        {/* 15b. Free Home Protection Kit Section */}
+        <section id="protection-kit" className="py-16 md:py-24 bg-cream overflow-hidden border-b border-black/5">
+          <div className="containerX">
+            <div className="grid md:grid-cols-12 gap-10 items-center">
+              {/* Left Column: Image */}
+              <div className="reveal md:col-span-6 order-2 md:order-1">
+                <div className="relative p-2 rounded-2xl bg-forest/5 ring-1 ring-forest/10 shadow-premium overflow-hidden">
+                  <img
+                    src="/products.webp"
+                    alt="FREE Pestyfi Home Protection Kit"
+                    className="w-full rounded-xl border border-black/5 object-cover aspect-square transition-transform duration-500 hover:scale-[1.02]"
+                  />
+                  <div className="absolute top-4 left-4 bg-urgent text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-md uppercase tracking-wider">
+                    Worth ₹1,499 Free
+                  </div>
                 </div>
               </div>
-              {/* <div className="pt-2 flex flex-wrap gap-3">
-                <Cta href={CONTACT.waHref}>Talk to Expert</Cta>
-              </div> */}
-            </div>
-            <div className="reveal md:col-span-7">
-              <div className="block lg:hidden w-full">
-                <button
-                  onClick={() => setIsBookingOpen(true)}
-                  className="btnPrimary w-full py-4 text-base font-bold shadow-premium"
-                >
-                  📅 Select Plan & Book Now
-                </button>
-              </div>
-              <div className="hidden lg:block bg-forest rounded-2xl shadow-premium border border-white/10 overflow-hidden">
-                <BookingWizard currentUser={currentUser} locationInfo={locationInfo} services={dynamicServices} rates={dynamicRates} />
+
+              {/* Right Column: Text & Benefits */}
+              <div className="reveal md:col-span-6 space-y-6 order-1 md:order-2">
+                <div>
+                  <span className="pillX bg-amber/25 text-urgent border-amber/30 uppercase tracking-wider text-[11px] font-bold">
+                    Exclusive Bonus Offer
+                  </span>
+                  <h2 className="mt-4 font-serif text-3xl font-semibold leading-tight text-forest md:text-4xl">
+                    FREE Pestyfi Home Protection Kit With Your First Service
+                  </h2>
+                  <p className="mt-4 text-base leading-relaxed text-ink/75">
+                    We don't just protect your home during our visits. Every first-time prepaid booking includes our professional DIY Protection Kit absolutely free, helping you maintain complete hygiene between services.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex gap-3.5">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-eco/25 text-eco text-sm font-semibold">✓</span>
+                    <div>
+                      <h4 className="text-sm font-bold text-forest">Professional-Grade Formulations</h4>
+                      <p className="text-xs text-ink/70 mt-1">Custom-designed sprays for bedbugs, mosquitoes, crawling insects, termites, and cockroach gel baiting.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3.5">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-eco/25 text-eco text-sm font-semibold">✓</span>
+                    <div>
+                      <h4 className="text-sm font-bold text-forest">Safe for Kids & Pets</h4>
+                      <p className="text-xs text-ink/70 mt-1">100% herbal & eco-friendly ingredients that provide absolute safety for your family.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3.5">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-eco/25 text-eco text-sm font-semibold">✓</span>
+                    <div>
+                      <h4 className="text-sm font-bold text-forest">365-Day Home Defense</h4>
+                      <p className="text-xs text-ink/70 mt-1">Extend the life of your professional pest control service with quick-action touch-up applications.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Cta href="/book/service" className="px-6 py-3 text-sm font-bold shadow-premium">
+                    Claim Your Free Kit Now
+                  </Cta>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {/* 4. Trusted By */}
-        <section className="border-y border-black/5 bg-white py-12">
+        <section className="border-y border-black/5 bg-white py-12" id="trusted">
           <div className="containerX mb-8 text-center">
             <h2 className="font-serif text-2xl font-semibold text-forest md:text-3xl">
               Trusted By Families, Businesses And Institutions Across Mumbai
@@ -1090,7 +1337,7 @@ function App() {
         </section>
 
         {/* 5. Home Maintenance */}
-        <section className="py-16 md:py-20">
+        <section id="maintenance" className="py-16 md:py-20">
           <div className="containerX grid gap-10 md:grid-cols-2 md:items-center">
             <div className="reveal">
               <SectionHead
@@ -1109,7 +1356,7 @@ function App() {
                   activeClass="text-forest"
                 />
               </p>
-              <Cta href="#book" className="mt-6">Book Preventive Pest Protection</Cta>
+              <Cta href="/book/service" className="mt-6">Book Preventive Pest Protection</Cta>
             </div>
             <div className="reveal flex flex-col gap-6">
               <img
@@ -1154,7 +1401,7 @@ function App() {
               ))}
             </div>
             <div className="reveal mt-10 text-center">
-              <Cta href="#book">Protect My Home Today</Cta>
+              <Cta href="/book/service">Protect My Home Today</Cta>
             </div>
           </div>
         </section>
@@ -1175,7 +1422,7 @@ function App() {
                       <ScrollRevealText text={cockroach.text} activeClass="text-cream" />
                     </p>
                   </div>
-                  <Cta href="#book" className="mt-6 w-fit">Book Cockroach Control</Cta>
+                  <Cta href="/book/service" className="mt-6 w-fit">Book Cockroach Control</Cta>
                 </div>
                 <div className="relative h-64 md:h-auto min-h-[250px]">
                   <img
@@ -1258,7 +1505,7 @@ function App() {
                         </div>
                       )}
                     </div>
-                    <a href="#book" className="mt-4 inline-block text-xs font-semibold text-green hover:text-forest">Book Now →</a>
+                    <a href="/book/service" className="mt-4 inline-block text-xs font-semibold text-green hover:text-forest">Book Now →</a>
                   </div>
                 </article>
               ))}
@@ -1267,7 +1514,7 @@ function App() {
         </section>
 
         {/* 8. Notice Pests Early */}
-        <section className="bg-forest py-16 text-cream md:py-20">
+        <section id="early-signs" className="bg-forest py-16 text-cream md:py-20">
           <div className="containerX grid gap-10 md:grid-cols-2 md:items-center">
             <div className="reveal space-y-4">
               <h2 className="font-serif text-3xl font-semibold md:text-4xl">You Don't Notice Pests Until They've Already Made Themselves Comfortable</h2>
@@ -1285,7 +1532,7 @@ function App() {
                   />
                 </p>
               </div>
-              <Cta href="#book" className="mt-8 inline-block">Stop the Infestation Early</Cta>
+              <Cta href="/book/service" className="mt-8 inline-block">Stop the Infestation Early</Cta>
             </div>
             <div className="reveal">
               <img
@@ -1297,8 +1544,7 @@ function App() {
           </div>
         </section>
 
-        {/* 9. Fits Into Your Life */}
-        <section className="py-16 md:py-20">
+        <section id="convenience" className="py-16 md:py-20">
           <div className="containerX grid gap-10 md:grid-cols-2 md:items-center">
             <div className="reveal">
               <SectionHead title="Pest Control That Fits Into Your Life, Not the Other Way Around" subtitle="You should not have to rearrange your entire home for pest control." />
@@ -1315,7 +1561,7 @@ function App() {
                   activeClass="text-ink"
                 />
               </p>
-              <Cta href="#book" className="reveal mt-4">Book a Hassle-Free Service</Cta>
+              <Cta href="/book/service" className="reveal mt-4">Book a Hassle-Free Service</Cta>
             </div>
             <div className="reveal">
               <img
@@ -1327,8 +1573,7 @@ function App() {
           </div>
         </section>
 
-        {/* 10. Real Problem */}
-        <section className="bg-white/60 py-16 md:py-20">
+        <section id="health-risks" className="bg-white/60 py-16 md:py-20">
           <div className="containerX grid gap-10 md:grid-cols-2 md:items-center">
             <div className="reveal">
               <img
@@ -1356,7 +1601,7 @@ function App() {
                   activeClass="text-forest"
                 />
               </p>
-              <Cta href="#book" className="mt-6">Protect My Family Today</Cta>
+              <Cta href="/book/service" className="mt-6">Protect My Family Today</Cta>
             </div>
           </div>
         </section>
@@ -1481,13 +1726,13 @@ function App() {
               ))}
             </div>
             <div className="reveal mt-10 text-center">
-              <Cta href="#book">Join Thousands of Pest-Free Homes</Cta>
+              <Cta href="/book/service">Join Thousands of Pest-Free Homes</Cta>
             </div>
           </div>
         </section>
 
         {/* 13. Tree Planting */}
-        <section className="bg-green py-14 text-cream">
+        <section id="sustainability" className="bg-green py-14 text-cream">
           <div className="containerX reveal flex flex-col items-center gap-4 text-center md:flex-row md:text-left">
             <div>
               <h2 className="font-serif text-2xl font-semibold md:text-3xl">We protect your home, family and the planet</h2>
@@ -1528,73 +1773,7 @@ function App() {
           </div>
         </section>
 
-        {/* 15b. Free Home Protection Kit Section */}
-        <section className="py-16 md:py-24 bg-white overflow-hidden border-b border-black/5">
-          <div className="containerX">
-            <div className="grid md:grid-cols-12 gap-10 items-center">
-              {/* Left Column: Image */}
-              <div className="reveal md:col-span-6 order-2 md:order-1">
-                <div className="relative p-2 rounded-2xl bg-forest/5 ring-1 ring-forest/10 shadow-premium overflow-hidden">
-                  <img
-                    src="/products.webp"
-                    alt="FREE Pestyfi Home Protection Kit"
-                    className="w-full rounded-xl border border-black/5 object-cover aspect-square transition-transform duration-500 hover:scale-[1.02]"
-                  />
-                  <div className="absolute top-4 left-4 bg-urgent text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-md uppercase tracking-wider">
-                    Worth ₹1,499 Free
-                  </div>
-                </div>
-              </div>
 
-              {/* Right Column: Text & Benefits */}
-              <div className="reveal md:col-span-6 space-y-6 order-1 md:order-2">
-                <div>
-                  <span className="pillX bg-amber/25 text-urgent border-amber/30 uppercase tracking-wider text-[11px] font-bold">
-                    Exclusive Bonus Offer
-                  </span>
-                  <h2 className="mt-4 font-serif text-3xl font-semibold leading-tight text-forest md:text-4xl">
-                    FREE Pestyfi Home Protection Kit With Your First Service
-                  </h2>
-                  <p className="mt-4 text-base leading-relaxed text-ink/75">
-                    We don't just protect your home during our visits. Every first-time prepaid booking includes our professional DIY Protection Kit absolutely free, helping you maintain complete hygiene between services.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex gap-3.5">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-eco/25 text-eco text-sm font-semibold">✓</span>
-                    <div>
-                      <h4 className="text-sm font-bold text-forest">Professional-Grade Formulations</h4>
-                      <p className="text-xs text-ink/70 mt-1">Custom-designed sprays for bedbugs, mosquitoes, crawling insects, termites, and cockroach gel baiting.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3.5">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-eco/25 text-eco text-sm font-semibold">✓</span>
-                    <div>
-                      <h4 className="text-sm font-bold text-forest">Safe for Kids & Pets</h4>
-                      <p className="text-xs text-ink/70 mt-1">100% herbal & eco-friendly ingredients that provide absolute safety for your family.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3.5">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-eco/25 text-eco text-sm font-semibold">✓</span>
-                    <div>
-                      <h4 className="text-sm font-bold text-forest">365-Day Home Defense</h4>
-                      <p className="text-xs text-ink/70 mt-1">Extend the life of your professional pest control service with quick-action touch-up applications.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <Cta href="#book" className="px-6 py-3 text-sm font-bold shadow-premium">
-                    Claim Your Free Kit Now
-                  </Cta>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* Book CTA */}
         <section id="book" className="bg-forest py-16 text-cream md:py-20">
@@ -1611,14 +1790,22 @@ function App() {
             </div>
             <div className="block lg:hidden w-full mt-6">
               <button
-                onClick={() => setIsBookingOpen(true)}
+                onClick={() => openBookingFlow('service')}
                 className="btnLight w-full py-4 text-base font-bold shadow-premium"
               >
                 📅 Choose Plan & Book Now
               </button>
             </div>
             <div className="hidden lg:block w-full">
-              <BookingWizard currentUser={currentUser} locationInfo={locationInfo} services={dynamicServices} rates={dynamicRates} />
+              <BookingWizard
+                currentUser={currentUser}
+                locationInfo={locationInfo}
+                services={dynamicServices}
+                rates={dynamicRates}
+                bookSlug={bookSlug}
+                initialServiceId={preferredServiceId}
+                onBookRouteChange={handleBookRouteChange}
+              />
             </div>
 
           </div>
@@ -1652,11 +1839,11 @@ function App() {
             <div className="text-sm font-semibold">Quick Links</div>
             <ul className="mt-3 space-y-2 text-sm text-cream/75">
               {[
-                { label: 'Services', href: '#services' },
-                { label: 'Why Pestyfi', href: '#why-us' },
-                { label: 'About Us', href: '#about' },
-                { label: 'FAQs', href: '#faq' },
-                { label: 'Book Now', href: '#book' },
+                { label: 'Services', href: '/services' },
+                { label: 'Why Pestyfi', href: '/why-us' },
+                { label: 'About Us', href: '/about' },
+                { label: 'FAQs', href: '/faq' },
+                { label: 'Book Now', href: '/book/service' },
                 { label: 'Privacy Policy', href: '/privacy' },
               ].map((l) => (
                 <li key={l.label}>
@@ -1706,7 +1893,7 @@ function App() {
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         currentUser={currentUser}
-        onUserUpdate={(updatedUser) => setCurrentUser(updatedUser)}
+        onUserUpdate={setCurrentUser}
       />
 
       {/* Social Proof Sales Notifications */}
@@ -1716,14 +1903,14 @@ function App() {
       {isBookingOpen && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
           {/* Backdrop */}
-          <div className="fixed inset-0 bg-forest/80 backdrop-blur-sm" onClick={() => setIsBookingOpen(false)} />
+          <div className="fixed inset-0 bg-forest/80 backdrop-blur-sm" onClick={closeBookingModal} />
 
           {/* Modal Content Card */}
           <div className="relative w-full max-w-lg overflow-y-auto max-h-[90vh] rounded-2xl border border-white/10 bg-forest shadow-premium ring-1 ring-black/5">
             {/* Close Button overlay */}
             <button
               type="button"
-              onClick={() => setIsBookingOpen(false)}
+              onClick={closeBookingModal}
               className="absolute top-4 right-4 z-[100] rounded-lg p-1.5 text-cream/60 hover:bg-white/10 transition-colors focus:outline-none bg-black/20"
               aria-label="Close booking modal"
             >
@@ -1738,6 +1925,9 @@ function App() {
                 locationInfo={locationInfo}
                 services={dynamicServices}
                 rates={dynamicRates}
+                bookSlug={bookSlug}
+                initialServiceId={preferredServiceId}
+                onBookRouteChange={handleBookRouteChange}
               />
             </div>
           </div>
@@ -1745,23 +1935,33 @@ function App() {
       )}
 
       {/* Sticky Mobile/Tablet CTA */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/5 px-4 py-4 flex gap-3 lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[calc(16px+env(safe-area-inset-bottom))]">
-        <a
-          href={CONTACT.waHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 h-[52px] rounded-xl bg-cream/30 hover:bg-cream/50 border border-black/5 flex items-center justify-center gap-2 text-xs font-bold text-forest transition"
-        >
-          <span className="text-sm">💬</span>
-          Talk to Agent
-        </a>
-        <a
-          href="#book"
-          className="flex-1 h-[52px] rounded-xl bg-forest hover:bg-forest/95 flex items-center justify-center gap-2 text-xs font-bold text-white transition shadow-sm"
-        >
-          <span className="text-sm">📅</span>
-          Book Now
-        </a>
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/5 px-4 pt-4 pb-[calc(12px+env(safe-area-inset-bottom))] flex flex-col gap-2.5 lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+        <div className="flex gap-3">
+          <a
+            href={CONTACT.waHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 h-[52px] rounded-xl bg-cream/30 hover:bg-cream/50 border border-black/5 flex items-center justify-center gap-2 text-xs font-bold text-forest transition"
+          >
+            <span className="text-sm">💬</span>
+            Talk to Agent
+          </a>
+          <a
+            href="/book/service"
+            className="flex-1 h-[52px] rounded-xl bg-forest hover:bg-forest/95 flex items-center justify-center gap-2 text-xs font-bold text-white transition shadow-sm"
+          >
+            <span className="text-sm">📅</span>
+            Book Now
+          </a>
+        </div>
+        <div className="flex items-center justify-center gap-1.5 text-[10px] text-ink/50 font-medium">
+          <span>🔒 All payments are secured by</span>
+          <svg className="h-3.5 w-auto" fill="#3395FF" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <title>Razorpay</title>
+            <path d="M22.436 0l-11.91 7.773-1.174 4.276 6.625-4.297L11.65 24h4.391l6.395-24zM14.26 10.098L3.389 17.166 1.564 24h9.008l3.688-13.902Z"/>
+          </svg>
+          <span className="font-bold text-[#3395FF]">Razorpay</span>
+        </div>
       </div>
 
       <IosInstallPrompt />

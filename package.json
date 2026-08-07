@@ -9,16 +9,20 @@
     "dev:all": "npm run dev:api & npm run dev",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:query": "node scratch/test_user_query.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "eventsource": "^4.1.0",
     "express": "^4.21.2",
+    "framer-motion": "^11.18.2",
     "pocketbase": "^0.21.5",
     "react": "^19.2.6",
     "react-calendar": "^6.0.1",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

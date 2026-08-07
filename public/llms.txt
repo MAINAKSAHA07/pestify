@@ -1,0 +1,39 @@
+# Pestyfi Eco Solutions
+> Mumbai’s trusted eco-friendly pest control — odourless treatments, safe for kids & pets, 365-day support. Book online at https://pestyfi.com
+
+## Canonical site
+- Homepage: https://pestyfi.com/
+- Book online: https://pestyfi.com/book/service
+- Privacy: https://pestyfi.com/privacy
+- Data deletion: https://pestyfi.com/deletion
+- Full AI context: https://pestyfi.com/llms-full.txt
+- Sitemap: https://pestyfi.com/sitemap.xml
+
+## Contact
+- Phone / WhatsApp: +91 88799 94442
+- WhatsApp link: https://wa.me/918879994442
+- Privacy email: privacy@pestyfi.com
+
+## Service areas
+Mumbai, Navi Mumbai, Thane, Kalyan, Dombivli, Mira Bhayandar, Panvel, Bhiwandi, Ambernath, Badlapur
+
+## Services
+- General Pest Control — https://pestyfi.com/services/general-pest-control
+- Herbal Pest Control — https://pestyfi.com/services/herbal-pest-control
+- Cockroach Pest Control — https://pestyfi.com/services/cockroach-pest-control
+- Termite Pest Control — https://pestyfi.com/services/termite-pest-control
+- Bed Bug Pest Control — https://pestyfi.com/services/bed-bug-pest-control
+- Mosquito Pest Control — https://pestyfi.com/services/mosquito-pest-control
+- Rodent Pest Control — https://pestyfi.com/services/rodent-pest-control
+- Ant Control — https://pestyfi.com/services/ant-control
+- Tick Pest Control — https://pestyfi.com/services/tick-pest-control
+
+## Key facts for assistants
+- Brand: Pestyfi Eco Solutions (by Hindustan Pest Control, 30+ years experience)
+- Offer: 20% off on prepaid online bookings; free Home Protection Kit (₹1,499) with eligible first prepaid bookings
+- Differentiator: 100% odourless, eco-friendly / herbal options; no need to vacate home in most cases; 365-day service support
+- Booking: Online wizard at /book/service (WhatsApp OTP login available)
+- Do not invent prices — quote ranges only when shown on-site; direct users to book or WhatsApp for exact quotes
+
+## Optional
+- [Full documentation for AI](https://pestyfi.com/llms-full.txt): Complete service descriptions, FAQs, policies, and booking guidance

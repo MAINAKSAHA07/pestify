@@ -5,11 +5,12 @@ export default function Logo({ className = '', size = 'md', onDark = false }) {
     <a
       href="/"
       onClick={(e) => {
-        if (window.location.pathname !== '/') {
-          e.preventDefault()
+        e.preventDefault()
+        if (window.location.pathname !== '/' || window.location.hash) {
           window.history.pushState({}, '', '/')
           window.dispatchEvent(new PopStateEvent('popstate'))
         }
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       }}
       className={`inline-flex shrink-0 items-center ${className}`}
       aria-label="Pestyfi home"

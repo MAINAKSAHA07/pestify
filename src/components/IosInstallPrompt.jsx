@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { triggerNativeNotification } from '../lib/notifications'
+import { enablePushNotifications } from '../lib/pushNotifications'
 
 export default function IosInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
@@ -66,17 +67,14 @@ export default function IosInstallPrompt() {
     setShowPrompt(false)
   }
 
-  const handleRequestNotification = () => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      Notification.requestPermission().then((permission) => {
-        setShowNotificationPrompt(false)
-        if (permission === 'granted') {
-          triggerNativeNotification(
-            'Notifications Enabled!',
-            'You will now receive updates on your bookings and tracking in real-time.'
-          )
-        }
-      })
+  const handleRequestNotification = async () => {
+    setShowNotificationPrompt(false)
+    const result = await enablePushNotifications()
+    if (result.ok) {
+      triggerNativeNotification(
+        'Notifications Enabled!',
+        'You will receive alerts even when the Pestyfi app is closed.'
+      )
     }
   }
 
@@ -130,7 +128,7 @@ export default function IosInstallPrompt() {
 
             {/* Info */}
             <p className="text-xs text-ink/70 leading-relaxed mb-4">
-              Get instant updates on your booking status, technician assignments, service reminders, and chat responses directly on your lock screen.
+              Get instant updates on booking status, technician assignments, and chat replies — even when the app is closed or on your lock screen.
             </p>
 
             <div className="flex gap-3">

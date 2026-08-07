@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { pb } from '../lib/pocketbase'
 import { sendWhatsAppOtp, verifyWhatsAppOtp } from '../lib/whatsappAuth'
-import { getAuthMethods, isGoogleAuthEnabled, startGoogleRedirectLogin, startGooglePopupLogin, parseAuthError, GOOGLE_REDIRECT_URI } from '../lib/googleAuth'
-import { normalizePhone } from './ProfileModal'
+import { getAuthMethods, isGoogleAuthEnabled, startGoogleRedirectLogin, startGooglePopupLogin, parseAuthError } from '../lib/googleAuth'
+import { formatFullPhone, formatDisplayPhone, isValidLocalPhone } from '../lib/phone'
+import { getApiBaseUrl } from '../lib/api'
+import PhoneInput from './PhoneInput'
+import LiquidOtpInput, { LiquidOtpSuccess, OtpSendingAnimation } from './LiquidOtpInput'
+
+const SHEET_SPRING = { type: 'spring', bounce: 0, duration: 0.38 }
 
 export default function AuthModal({ isOpen, onClose, onSuccess }) {
+  const reducedMotion = useReducedMotion()
   const [mode, setMode] = useState('whatsapp-phone')
-  const [phone, setPhone] = useState('')
+  const [phoneCountry, setPhoneCountry] = useState('IN')
+  const [phoneLocal, setPhoneLocal] = useState('')
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -15,6 +23,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const [cooldown, setCooldown] = useState(0)
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
+  const [otpVerified, setOtpVerified] = useState(false)
+  const [otpError, setOtpError] = useState(false)
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -26,7 +36,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
 
   useEffect(() => {
     if (!isOpen) return
-    setPhone('')
+    setPhoneCountry('IN')
+    setPhoneLocal('')
     setOtp('')
     setError('')
     setInfo('')
@@ -34,13 +45,23 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     setMode('whatsapp-phone')
     setNewName('')
     setNewEmail('')
+    setOtpVerified(false)
+    setOtpError(false)
 
     getAuthMethods()
       .then((methods) => setGoogleEnabled(isGoogleAuthEnabled(methods)))
       .catch(() => setGoogleEnabled(false))
   }, [isOpen])
 
-  if (!isOpen) return null
+  // Lock scroll while modal is open — prevents background jump
+  useEffect(() => {
+    if (!isOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [isOpen])
 
   const title =
     mode === 'whatsapp-phone'
@@ -48,6 +69,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
       : mode === 'whatsapp-otp'
         ? 'Enter WhatsApp Code'
         : 'Setup Account Profile'
+
+  const busy = loading || otpVerified
+
+  const handleBackdropClose = () => {
+    if (busy) return // Don't dismiss mid-verify / success beat
+    onClose()
+  }
 
   const handleGoogleLogin = () => {
     if (!googleEnabled) {
@@ -81,14 +109,23 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
   }
 
   const handleWhatsAppSendOtp = async (e) => {
-    e.preventDefault()
+    e?.preventDefault?.()
     setError('')
     setInfo('')
+
+    if (!isValidLocalPhone(phoneCountry, phoneLocal)) {
+      setError('Please enter a valid phone number for the selected country.')
+      return
+    }
+
+    const fullPhone = formatFullPhone(phoneCountry, phoneLocal)
     setLoading(true)
     try {
-      const data = await sendWhatsAppOtp(phone)
-      setInfo(`Code sent to ${data.phone} on WhatsApp`)
+      const data = await sendWhatsAppOtp(fullPhone)
+      setInfo(`Code sent to ${formatDisplayPhone(data.phone || fullPhone)} on WhatsApp`)
       setMode('whatsapp-otp')
+      setOtp('')
+      setOtpError(false)
       setCooldown(60)
     } catch (err) {
       setError(err.message)
@@ -101,27 +138,40 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     }
   }
 
-  const handleWhatsAppVerifyOtp = async (e) => {
-    e.preventDefault()
+  const handleWhatsAppVerifyOtp = async (e, codeOverride) => {
+    e?.preventDefault?.()
+    const code = (codeOverride ?? otp).replace(/\D/g, '').slice(0, 6)
+    if (code.length < 6 || loading || otpVerified) return
+
     setError('')
+    setOtpError(false)
     setLoading(true)
     try {
-      const data = await verifyWhatsAppOtp(phone, otp)
-      
-      const isNew = !data.record.name || 
+      const fullPhone = formatFullPhone(phoneCountry, phoneLocal)
+      const data = await verifyWhatsAppOtp(fullPhone, code)
+
+      const isNew = !data.record.name ||
                     !data.record.name.trim() ||
                     data.record.name.startsWith('WhatsApp ')
 
       pb.authStore.save(data.token, data.record)
+      localStorage.setItem('pestyfi_profile_phone', fullPhone)
+      setOtp(code)
+      setOtpVerified(true)
 
-      if (isNew) {
-        setMode('onboarding')
-      } else {
-        onSuccess?.()
-        onClose()
-      }
+      window.setTimeout(() => {
+        if (isNew) {
+          setMode('onboarding')
+          setOtpVerified(false)
+        } else {
+          onSuccess?.()
+          onClose()
+        }
+      }, 900)
     } catch (err) {
       setError(err.message)
+      setOtpError(true)
+      setOtp('')
     } finally {
       setLoading(false)
     }
@@ -136,8 +186,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
     setError('')
     setLoading(true)
     try {
-      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
-      const res = await fetch(`${API_BASE}/whatsapp/update-profile`, {
+      const res = await fetch(`${getApiBaseUrl()}/whatsapp/update-profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +204,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
       }
 
       pb.authStore.save(pb.authStore.token, data.record)
-      
+
       onSuccess?.()
       onClose()
     } catch (err) {
@@ -166,154 +215,251 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-forest/80 backdrop-blur-sm" onClick={onClose} />
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <motion.div
+            className="fixed inset-0 bg-forest/80"
+            style={{ backdropFilter: reducedMotion ? 'none' : 'blur(8px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: reducedMotion ? 0.15 : 0.28 }}
+            onClick={handleBackdropClose}
+            aria-hidden="true"
+          />
 
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl2 border border-white/10 bg-white shadow-premium ring-1 ring-black/5">
-        <div className="h-1.5 w-full bg-gradient-to-r from-eco via-amber to-urgent" />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auth-modal-title"
+            className="relative w-full max-w-md overflow-x-clip rounded-2xl2 border border-white/10 bg-white shadow-premium ring-1 ring-black/5"
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }}
+            transition={reducedMotion ? { duration: 0.15 } : SHEET_SPRING}
+          >
+            <div className="h-1.5 w-full bg-gradient-to-r from-eco via-amber to-urgent" />
 
-        <div className="p-6 sm:p-8">
-          <div className="mb-6 flex items-center justify-between">
-            <h3 className="font-serif text-2xl font-bold text-forest">{title}</h3>
-            <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-ink/40 hover:bg-black/5" aria-label="Close">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-
-          {error && (
-            <div className="mb-4 whitespace-pre-line rounded-xl border border-urgent/20 bg-urgent/10 px-4 py-3 text-xs font-semibold text-urgent">{error}</div>
-          )}
-          {info && (
-            <div className="mb-4 rounded-xl border border-eco/20 bg-eco/10 px-4 py-3 text-xs font-semibold text-green">{info}</div>
-          )}
-
-          {mode === 'whatsapp-phone' && (
-            <>
-              <form onSubmit={handleWhatsAppSendOtp} className="space-y-4" noValidate>
-                <p className="text-xs leading-relaxed text-ink/60">
-                  Enter your WhatsApp number. We&apos;ll send a one-time login code via WhatsApp Cloud API.
-                </p>
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-ink/60">WhatsApp Number</span>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+91 98765 43210"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-black/10 bg-cream/30 px-3.5 text-sm focus:border-eco focus:outline-none focus:ring-2 focus:ring-eco/20"
-                  />
-                </label>
-                <button type="submit" disabled={loading || cooldown > 0} className="btnX h-11 w-full bg-[#25D366] font-semibold text-white hover:bg-[#1da851] disabled:opacity-70">
-                  {loading ? 'Sending...' : cooldown > 0 ? `Resend Code in ${cooldown}s` : 'Send Code on WhatsApp'}
-                </button>
-              </form>
-
-              {/*
-              <div className="relative my-5">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-black/5" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 font-semibold text-ink/40">Or continue with</span>
-                </div>
+            <div className="p-5 sm:p-8">
+              <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6">
+                <h3 id="auth-modal-title" className="font-serif text-xl font-bold text-forest sm:text-2xl">
+                  {title}
+                </h3>
+                <motion.button
+                  type="button"
+                  onClick={handleBackdropClose}
+                  disabled={busy}
+                  className="rounded-lg p-1.5 text-ink/40 hover:bg-black/5 disabled:opacity-40"
+                  aria-label="Close"
+                  whileTap={busy ? undefined : { scale: 0.92 }}
+                  transition={SHEET_SPRING}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </motion.button>
               </div>
 
-              <div className="space-y-3">
-                {googleEnabled ? (
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={loading}
-                    className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink shadow-sm hover:bg-cream/10 disabled:opacity-75"
+              {error && (
+                <div className="mb-4 whitespace-pre-line rounded-xl border border-urgent/20 bg-urgent/10 px-4 py-3 text-xs font-semibold text-urgent">
+                  {error}
+                </div>
+              )}
+              {/* Phone step only — OTP step has its own waiting banner */}
+              {info && mode === 'whatsapp-phone' && (
+                <div className="mb-4 rounded-xl border border-eco/20 bg-eco/10 px-4 py-3 text-xs font-semibold text-green">
+                  {info}
+                </div>
+              )}
+
+              <AnimatePresence mode="wait">
+                {mode === 'whatsapp-phone' && (
+                  <motion.div
+                    key="phone"
+                    initial={reducedMotion ? false : { opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={reducedMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
+                    transition={SHEET_SPRING}
                   >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" />
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
-                    </svg>
-                    Continue with Google
-                  </button>
-                ) : (
-                  <p className="rounded-xl border border-amber/30 bg-amber/10 px-3 py-2 text-xs text-forest text-center">
-                    Google login is not configured on the server yet.
-                  </p>
+                    <form onSubmit={handleWhatsAppSendOtp} className="space-y-4" noValidate>
+                      <p className="text-xs leading-relaxed text-ink/60">
+                        Enter your WhatsApp number. We&apos;ll send a one-time login code via WhatsApp.
+                      </p>
+                      <label className="block space-y-1.5">
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink/60">WhatsApp Number</span>
+                        <PhoneInput
+                          theme="light"
+                          countryId={phoneCountry}
+                          localNumber={phoneLocal}
+                          onCountryChange={setPhoneCountry}
+                          onLocalNumberChange={setPhoneLocal}
+                          required
+                        />
+                      </label>
+                      <motion.button
+                        type="submit"
+                        disabled={loading || cooldown > 0}
+                        className="btnX h-11 w-full bg-[#25D366] font-semibold text-white hover:bg-[#1da851] disabled:opacity-70"
+                        whileTap={loading || cooldown > 0 ? undefined : { scale: 0.98 }}
+                        transition={SHEET_SPRING}
+                      >
+                        {loading ? 'Sending...' : cooldown > 0 ? `Resend Code in ${cooldown}s` : 'Send Code on WhatsApp'}
+                      </motion.button>
+                      <AnimatePresence>
+                        {loading && <OtpSendingAnimation />}
+                      </AnimatePresence>
+                    </form>
+                  </motion.div>
                 )}
-              </div>
-              */}
-            </>
-          )}
 
-          {mode === 'whatsapp-otp' && (
-            <form onSubmit={handleWhatsAppVerifyOtp} className="space-y-4" noValidate>
-              <p className="text-xs text-ink/60">
-                Enter the 6-digit code sent to <strong>{phone}</strong>
-              </p>
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-ink/60">Verification Code</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  required
-                  maxLength={6}
-                  placeholder="123456"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  className="h-11 w-full rounded-xl border border-black/10 bg-cream/30 px-3.5 text-center text-lg font-semibold tracking-[0.3em] focus:border-eco focus:outline-none focus:ring-2 focus:ring-eco/20"
-                />
-              </label>
-              <button type="submit" disabled={loading || otp.length < 6} className="btnX h-11 w-full bg-forest font-semibold text-cream hover:bg-green disabled:opacity-70">
-                {loading ? 'Verifying...' : 'Verify & Login'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('whatsapp-phone')
-                  setOtp('')
-                }}
-                className="w-full text-xs font-semibold text-ink/50 hover:text-eco"
-              >
-                ← Change number / resend
-              </button>
-            </form>
-          )}
+                {mode === 'whatsapp-otp' && (
+                  <motion.div
+                    key="otp"
+                    initial={reducedMotion ? false : { opacity: 0, x: 16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={reducedMotion ? { opacity: 0 } : { opacity: 0, x: 16 }}
+                    transition={SHEET_SPRING}
+                  >
+                    <form onSubmit={handleWhatsAppVerifyOtp} className="space-y-5" noValidate>
+                      {otpVerified ? (
+                        <LiquidOtpSuccess code={otp} />
+                      ) : (
+                        <>
+                          <div className="flex flex-col items-center gap-3 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-eco/30 bg-eco/10 text-green">
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path
+                                  d="M12 3l7 3v5c0 4.5-2.8 8.4-7 10-4.2-1.6-7-5.5-7-10V6l7-3z"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinejoin="round"
+                                />
+                                <circle cx="12" cy="11" r="2.2" stroke="currentColor" strokeWidth="1.6" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-serif text-lg font-bold text-forest">Verification Code</p>
+                              <p className="mt-1 text-xs leading-relaxed text-ink/55">
+                                Enter the 6-digit code sent to{' '}
+                                <strong className="text-ink/75">
+                                  {formatDisplayPhone(formatFullPhone(phoneCountry, phoneLocal))}
+                                </strong>
+                              </p>
+                            </div>
+                          </div>
 
-          {mode === 'onboarding' && (
-            <form onSubmit={handleOnboardingSubmit} className="space-y-4" noValidate>
-              <p className="text-xs text-ink/65 leading-relaxed">
-                Welcome to Pestyfi! Please complete your account setup by entering your name and email.
-              </p>
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-ink/60">Full Name *</span>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Rahul Sharma"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-black/10 bg-cream/30 px-3.5 text-sm focus:border-eco focus:outline-none focus:ring-2 focus:ring-eco/20"
-                />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-ink/60">Email Address (Optional)</span>
-                <input
-                  type="email"
-                  placeholder="e.g. rahul@example.com"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-black/10 bg-cream/30 px-3.5 text-sm focus:border-eco focus:outline-none focus:ring-2 focus:ring-eco/20"
-                />
-              </label>
-              <button type="submit" disabled={loading || !newName.trim()} className="btnX h-11 w-full bg-forest font-semibold text-cream hover:bg-green disabled:opacity-70">
-                {loading ? 'Saving Profile...' : 'Complete Registration'}
-              </button>
-            </form>
-          )}
+                          <LiquidOtpInput
+                            value={otp}
+                            onChange={(next) => {
+                              setOtp(next)
+                              setOtpError(false)
+                              setError('')
+                            }}
+                            onComplete={(code) => {
+                              handleWhatsAppVerifyOtp(null, code)
+                            }}
+                            disabled={loading}
+                            error={otpError}
+                            waiting={!loading && !otpError}
+                          />
+
+                          <AnimatePresence>
+                            {loading && <OtpSendingAnimation variant="verifying" />}
+                          </AnimatePresence>
+
+                          <motion.button
+                            type="submit"
+                            disabled={loading || otp.length < 6}
+                            className="btnX h-11 w-full bg-forest font-semibold text-cream hover:bg-green disabled:opacity-70"
+                            whileTap={loading || otp.length < 6 ? undefined : { scale: 0.98 }}
+                            transition={SHEET_SPRING}
+                          >
+                            {loading ? 'Verifying...' : 'Verify & Login'}
+                          </motion.button>
+
+                          <div className="flex flex-col items-center gap-2">
+                            <p className="text-xs text-ink/45">
+                              Didn&apos;t receive the code?{' '}
+                              <button
+                                type="button"
+                                disabled={loading || cooldown > 0}
+                                onClick={handleWhatsAppSendOtp}
+                                className="font-semibold text-green underline underline-offset-2 hover:text-forest disabled:opacity-50"
+                              >
+                                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend OTP'}
+                              </button>
+                            </p>
+                            <button
+                              type="button"
+                              disabled={loading}
+                              onClick={() => {
+                                setMode('whatsapp-phone')
+                                setOtp('')
+                                setOtpError(false)
+                                setError('')
+                              }}
+                              className="text-xs font-semibold text-ink/50 hover:text-eco disabled:opacity-50"
+                            >
+                              ← Change number
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </form>
+                  </motion.div>
+                )}
+
+                {mode === 'onboarding' && (
+                  <motion.div
+                    key="onboarding"
+                    initial={reducedMotion ? false : { opacity: 0, x: 16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={reducedMotion ? { opacity: 0 } : { opacity: 0, x: 12 }}
+                    transition={SHEET_SPRING}
+                  >
+                    <form onSubmit={handleOnboardingSubmit} className="space-y-4" noValidate>
+                      <p className="text-xs text-ink/65 leading-relaxed">
+                        Welcome to Pestyfi! Please complete your account setup by entering your name and email.
+                      </p>
+                      <label className="block space-y-1.5">
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink/60">Full Name *</span>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Rahul Sharma"
+                          value={newName}
+                          onChange={(e) => setNewName(e.target.value)}
+                          className="h-11 w-full rounded-xl border border-black/10 bg-cream/30 px-3.5 text-sm focus:border-eco focus:outline-none focus:ring-2 focus:ring-eco/20"
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink/60">Email Address (Optional)</span>
+                        <input
+                          type="email"
+                          placeholder="e.g. rahul@example.com"
+                          value={newEmail}
+                          onChange={(e) => setNewEmail(e.target.value)}
+                          className="h-11 w-full rounded-xl border border-black/10 bg-cream/30 px-3.5 text-sm focus:border-eco focus:outline-none focus:ring-2 focus:ring-eco/20"
+                        />
+                      </label>
+                      <motion.button
+                        type="submit"
+                        disabled={loading || !newName.trim()}
+                        className="btnX h-11 w-full bg-forest font-semibold text-cream hover:bg-green disabled:opacity-70"
+                        whileTap={loading || !newName.trim() ? undefined : { scale: 0.98 }}
+                        transition={SHEET_SPRING}
+                      >
+                        {loading ? 'Saving Profile...' : 'Complete Registration'}
+                      </motion.button>
+                    </form>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   )
 }

@@ -5,13 +5,13 @@ export const ANNOUNCEMENT =
 
 
 export const NAV_LINKS = [
-  { label: 'Home', href: '#top' },
-  { label: 'Services', href: '#services' },
-  { label: 'Why Pestyfi', href: '#why-us' },
-  { label: 'About Us', href: '#about' },
-  { label: 'FAQs', href: '#faq' },
-  { label: 'Book Now', href: '#book', cta: true },
-  // { label: 'Talk to Expert', href: '#book', expert: true },
+  { label: 'Home', href: '/' },
+  { label: 'Services', href: '/services' },
+  { label: 'Why Pestyfi', href: '/why-us' },
+  { label: 'About Us', href: '/about' },
+  { label: 'FAQs', href: '/faq' },
+  { label: 'Book Now', href: '/book/service', cta: true },
+  // { label: 'Talk to Expert', href: '/book/service', expert: true },
 ]
 
 export const HERO = {

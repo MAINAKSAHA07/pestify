@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { pb } from '../lib/pocketbase'
 import { APPROVED_PINCODES, getAreaForPincode } from '../data/pincodes'
+import PhoneInput from './PhoneInput'
+import { formatFullPhone, isValidLocalPhone } from '../lib/phone'
 
 export default function LocationModal({ isOpen, onClose, onSelect }) {
   const [pincode, setPincode] = useState('')
@@ -12,7 +14,8 @@ export default function LocationModal({ isOpen, onClose, onSelect }) {
   
   // Lead form states for unserved areas
   const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState('')
+  const [phoneCountry, setPhoneCountry] = useState('IN')
+  const [phoneLocal, setPhoneLocal] = useState('')
   const [submittingLead, setSubmittingLead] = useState(false)
 
   useEffect(() => {
@@ -21,7 +24,8 @@ export default function LocationModal({ isOpen, onClose, onSelect }) {
       setError('')
       setStatus('input')
       setFullName('')
-      setPhone('')
+      setPhoneCountry('IN')
+      setPhoneLocal('')
     }
   }, [isOpen])
 
@@ -104,20 +108,21 @@ export default function LocationModal({ isOpen, onClose, onSelect }) {
   const handleLeadSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (!fullName.trim() || !phone.trim()) {
+    if (!fullName.trim() || !phoneLocal.trim()) {
       setError('Please fill in all fields.')
       return
     }
-    if (!/^\+?[0-9\s-]{8,}$/.test(phone)) {
-      setError('Please enter a valid phone number.')
+    if (!isValidLocalPhone(phoneCountry, phoneLocal)) {
+      setError('Please enter a valid phone number for the selected country.')
       return
     }
 
+    const fullPhone = formatFullPhone(phoneCountry, phoneLocal)
     setSubmittingLead(true)
     try {
       await pb.collection('leads').create({
         fullName,
-        phone,
+        phone: fullPhone,
         location: `OUT_OF_SERVICE: ${detectedPin}`,
       })
       setStatus('unserved-submitted')
@@ -289,13 +294,13 @@ export default function LocationModal({ isOpen, onClose, onSelect }) {
 
                 <label className="block space-y-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-ink/60">Phone Number</span>
-                  <input
-                    type="tel"
+                  <PhoneInput
+                    theme="light"
+                    countryId={phoneCountry}
+                    localNumber={phoneLocal}
+                    onCountryChange={setPhoneCountry}
+                    onLocalNumberChange={setPhoneLocal}
                     required
-                    placeholder="+91 XXXXX XXXXX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-black/10 bg-cream/10 px-3 text-sm focus:border-eco focus:outline-none"
                   />
                 </label>
 

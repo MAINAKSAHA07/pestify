@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { pb } from '../lib/pocketbase'
 import { triggerNativeNotification } from '../lib/notifications'
+import { enablePushNotifications, syncPushSubscriptionIfGranted } from '../lib/pushNotifications'
+import { getApiBaseUrl, parseApiResponse } from '../lib/api'
+import { normalizePhone } from '../lib/phone'
 
 const displayAddress = (addressStr) => {
   if (!addressStr) return 'Not set'
@@ -69,6 +72,11 @@ export default function BackendDashboard() {
   const [newUserPhone, setNewUserPhone] = useState('')
   const [newUserRole, setNewUserRole] = useState('customer')
   const [createUserLoading, setCreateUserLoading] = useState(false)
+  const [deletingStaffId, setDeletingStaffId] = useState(null)
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
+  const [staffModalMode, setStaffModalMode] = useState('create')
+  const [editingStaffId, setEditingStaffId] = useState(null)
+  const [editingStaffSnapshot, setEditingStaffSnapshot] = useState(null)
 
   // Manual booking states
   const [isManualBookingOpen, setIsManualBookingOpen] = useState(false)
@@ -103,17 +111,18 @@ export default function BackendDashboard() {
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
   )
 
-  const requestNotificationPermission = () => {
+  const requestNotificationPermission = async () => {
+    const result = await enablePushNotifications()
     if (typeof window !== 'undefined' && 'Notification' in window) {
-      Notification.requestPermission().then((permission) => {
-        setNotificationPermission(permission)
-        if (permission === 'granted') {
-          triggerNativeNotification(
-            'Pestyfi Notifications Enabled!',
-            'You will now receive real-time alerts for bookings, leads, and WhatsApp chats.'
-          )
-        }
-      })
+      setNotificationPermission(Notification.permission)
+    }
+    if (result.ok) {
+      triggerNativeNotification(
+        'Pestyfi Notifications Enabled!',
+        'You will receive alerts even when the app is closed.'
+      )
+    } else if (result.error) {
+      setError(result.error)
     }
   }
 
@@ -276,6 +285,66 @@ export default function BackendDashboard() {
     return () => unsubscribe()
   }, [])
 
+  // Refresh auth on load so role (admin/superadmin) is always current
+  useEffect(() => {
+    if (!pb.authStore.isValid) return
+    pb.collection('users')
+      .authRefresh()
+      .then(({ record }) => setCurrentUser(record))
+      .catch(() => {
+        pb.authStore.clear()
+        setCurrentUser(null)
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!currentUser) return
+    syncPushSubscriptionIfGranted().catch(() => {})
+  }, [currentUser?.id])
+
+  const mergeStaffDetails = async (users) => {
+    if (currentUser?.role !== 'admin' && currentUser?.role !== 'superadmin') {
+      return users
+    }
+
+    try {
+      const API_BASE = getApiBaseUrl()
+      const res = await fetch(`${API_BASE}/admin/staff`, {
+        headers: { Authorization: pb.authStore.token },
+      })
+      const data = await parseApiResponse(res)
+      if (!res.ok || !Array.isArray(data.records)) return users
+
+      const staffById = new Map(data.records.map((record) => [record.id, record]))
+      return users.map((user) => staffById.get(user.id) || user)
+    } catch (err) {
+      console.error('Failed to load full staff details:', err)
+      return users
+    }
+  }
+
+  const fetchBookingsFromApi = async () => {
+    const API_BASE = getApiBaseUrl()
+    const res = await fetch(`${API_BASE}/bookings/admin`, {
+      headers: { Authorization: pb.authStore.token },
+    })
+    const data = await parseApiResponse(res)
+    if (!res.ok || !Array.isArray(data.records)) {
+      throw new Error(data.error || 'Could not retrieve bookings database.')
+    }
+    return data.records
+  }
+
+  const refreshBookingsList = async () => {
+    try {
+      const records = await fetchBookingsFromApi()
+      setBookings(records)
+    } catch (err) {
+      console.error('Failed to fetch bookings:', err)
+      setError(err?.message || 'Could not retrieve bookings database.')
+    }
+  }
+
   // Fetch data
   useEffect(() => {
     if (!currentUser) return
@@ -285,19 +354,18 @@ export default function BackendDashboard() {
     setLoading(true)
     setError('')
 
-    // Fetch Bookings
-    const fetchBookings = pb.collection('bookings')
-      .getFullList({ sort: '-created' })
+    const fetchBookings = fetchBookingsFromApi()
       .then((res) => setBookings(res))
       .catch((err) => {
         console.error('Failed to fetch bookings:', err)
-        setError('Could not retrieve bookings database.')
+        setError(err?.message || 'Could not retrieve bookings database.')
       })
 
     // Fetch Users if Admin or Superadmin
     const fetchUsers = currentUser.role === 'admin' || currentUser.role === 'superadmin'
       ? pb.collection('users')
           .getFullList({ sort: '-created' })
+          .then((res) => mergeStaffDetails(res))
           .then((res) => setUsersList(res))
           .catch((err) => {
             console.error('Failed to fetch users:', err)
@@ -326,7 +394,7 @@ export default function BackendDashboard() {
     Promise.all([fetchBookings, fetchUsers, fetchCustomers, fetchLeads]).finally(() => {
       setLoading(false)
     })
-  }, [currentUser])
+  }, [currentUser?.id, currentUser?.role])
 
   // Live Notifications Listener for Admins/Employees
   useEffect(() => {
@@ -411,6 +479,9 @@ export default function BackendDashboard() {
   // Logout handler
   const handleLogout = () => {
     pb.authStore.clear()
+    localStorage.removeItem('pestyfi_profile_phone')
+    localStorage.removeItem('pestyfi_profile_address')
+    localStorage.removeItem('pestyfi_booking_statuses')
     setCurrentUser(null)
     setBookings([])
     setUsersList([])
@@ -433,7 +504,7 @@ export default function BackendDashboard() {
       showToast('Status updated successfully!')
 
       // Send status update WhatsApp update
-      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const API_BASE = getApiBaseUrl()
       fetch(`${API_BASE}/bookings/notify-status`, {
         method: 'POST',
         headers: {
@@ -522,7 +593,7 @@ export default function BackendDashboard() {
       showToast('Booking updated successfully!')
 
       if (statusChanged) {
-        const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+        const API_BASE = getApiBaseUrl()
         fetch(`${API_BASE}/bookings/notify-status`, {
           method: 'POST',
           headers: {
@@ -564,6 +635,15 @@ export default function BackendDashboard() {
       showToast('Lead deleted successfully.')
     } catch (err) {
       setError(err?.message || 'Failed to delete lead.')
+    }
+  }
+
+  const refreshUsersList = async () => {
+    try {
+      const res = await pb.collection('users').getFullList({ sort: '-created' })
+      setUsersList(await mergeStaffDetails(res))
+    } catch (err) {
+      console.error('Failed to refresh users list:', err)
     }
   }
 
@@ -642,14 +722,73 @@ export default function BackendDashboard() {
       }
 
       showToast(`Role updated successfully to ${newRole}!`)
+      await refreshUsersList()
     } catch (err) {
       console.error('Failed to update user role:', err)
       setError(err?.message || 'Failed to update user role.')
     }
   }
 
-  // Create new user/staff account (Super Admin Only)
-  const handleCreateUser = async (e) => {
+  const isSuperadmin = currentUser?.role === 'superadmin'
+  const isAdminOrSuperadmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin'
+
+  const resetStaffForm = () => {
+    setNewUserName('')
+    setNewUserEmail('')
+    setNewUserPassword('')
+    setNewUserPhone('')
+    setNewUserRole('employee')
+    setEditingStaffId(null)
+    setEditingStaffSnapshot(null)
+  }
+
+  const openCreateStaffModal = () => {
+    resetStaffForm()
+    setStaffModalMode('create')
+    setIsStaffModalOpen(true)
+    setError('')
+  }
+
+  const openEditStaffModal = async (user) => {
+    setStaffModalMode('edit')
+    setEditingStaffId(user.id)
+    setError('')
+
+    let fullUser = user
+    if ((currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && !user.email) {
+      try {
+        const API_BASE = getApiBaseUrl()
+        const res = await fetch(`${API_BASE}/admin/staff/${user.id}`, {
+          headers: { Authorization: pb.authStore.token },
+        })
+        const data = await parseApiResponse(res)
+        if (res.ok && data.record) fullUser = data.record
+      } catch (err) {
+        console.warn('Could not load full staff record:', err)
+      }
+    }
+
+    setEditingStaffSnapshot({
+      name: fullUser.name || '',
+      email: (fullUser.email || '').toLowerCase(),
+      phone: fullUser.phone || '',
+      role: fullUser.role || 'employee',
+    })
+    setNewUserName(fullUser.name || '')
+    setNewUserEmail(fullUser.email || '')
+    setNewUserPhone(fullUser.phone || '')
+    setNewUserPassword('')
+    setNewUserRole(fullUser.role || 'employee')
+    setIsStaffModalOpen(true)
+  }
+
+  const closeStaffModal = () => {
+    setIsStaffModalOpen(false)
+    resetStaffForm()
+  }
+
+  // Create or update staff account (Super Admin Only — via server API)
+  const handleSaveStaffAccount = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
@@ -660,39 +799,134 @@ export default function BackendDashboard() {
       return
     }
 
-    if (newUserPassword.length < 8) {
+    if (staffModalMode === 'create' && newUserPassword.length < 8) {
       setError('Password must be at least 8 characters long.')
+      return
+    }
+
+    if (staffModalMode === 'edit' && newUserPassword && newUserPassword.length < 8) {
+      setError('New password must be at least 8 characters long.')
+      return
+    }
+
+    if (staffModalMode === 'edit' && !editingStaffId) {
+      setError('No staff account selected for editing.')
       return
     }
 
     setCreateUserLoading(true)
 
     try {
-      const data = {
-        email: newUserEmail.trim(),
-        emailVisibility: true,
-        password: newUserPassword,
-        passwordConfirm: newUserPassword,
+      const API_BASE = getApiBaseUrl()
+      const payload = {
         name: newUserName.trim(),
+        email: newUserEmail.trim().toLowerCase(),
         phone: newUserPhone.trim(),
         role: newUserRole,
       }
 
-      const created = await pb.collection('users').create(data)
-      setUsersList(prev => [created, ...prev])
-      showToast(`User ${created.email} created successfully with role ${created.role}!`)
-      
-      // Reset form fields
-      setNewUserName('')
-      setNewUserEmail('')
-      setNewUserPassword('')
-      setNewUserPhone('')
-      setNewUserRole('customer')
+      if (staffModalMode === 'create') {
+        payload.password = newUserPassword
+        const res = await fetch(`${API_BASE}/admin/staff`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: pb.authStore.token,
+          },
+          body: JSON.stringify(payload),
+        })
+        const data = await parseApiResponse(res)
+        if (!res.ok) throw new Error(data.error || 'Failed to create staff account')
+
+        await refreshUsersList()
+        if (data.record.role === 'customer') {
+          setCustomersList((prev) => [data.record, ...prev])
+        }
+        showToast(`Staff account ${data.record.email} created successfully!`)
+      } else {
+        const editPayload = {}
+        const trimmedName = newUserName.trim()
+        const trimmedEmail = newUserEmail.trim().toLowerCase()
+        const trimmedPhone = newUserPhone.trim()
+
+        if (trimmedName !== (editingStaffSnapshot?.name || '')) editPayload.name = trimmedName
+        if (trimmedEmail !== (editingStaffSnapshot?.email || '')) editPayload.email = trimmedEmail
+        if (normalizePhone(trimmedPhone) !== normalizePhone(editingStaffSnapshot?.phone || '')) {
+          editPayload.phone = trimmedPhone
+        }
+        if (newUserRole !== (editingStaffSnapshot?.role || 'employee')) editPayload.role = newUserRole
+        if (newUserPassword) editPayload.password = newUserPassword
+
+        if (Object.keys(editPayload).length === 0) {
+          setError('No changes to save.')
+          return
+        }
+
+        const res = await fetch(`${API_BASE}/admin/staff/${editingStaffId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: pb.authStore.token,
+          },
+          body: JSON.stringify(editPayload),
+        })
+        const data = await parseApiResponse(res)
+        if (!res.ok || !data.record) throw new Error(data.error || 'Failed to update staff account')
+
+        setUsersList((prev) => prev.map((u) => (u.id === data.record.id ? data.record : u)))
+        await refreshUsersList()
+
+        if (data.record.id === currentUser?.id) {
+          await pb.collection('users').authRefresh()
+          setCurrentUser(pb.authStore.model)
+        }
+
+        showToast(`Staff account ${data.record.email || data.record.name} updated successfully!`)
+      }
+
+      closeStaffModal()
     } catch (err) {
-      console.error('Failed to create user:', err)
-      setError(err?.message || 'Failed to create user account. Check if email already exists.')
+      console.error('Failed to save staff account:', err)
+      setError(err?.message || 'Failed to save staff account.')
     } finally {
       setCreateUserLoading(false)
+    }
+  }
+
+  // Legacy alias kept for any remaining references
+  const handleCreateUser = handleSaveStaffAccount
+
+  const handleDeleteStaffAccount = async (user) => {
+    if (!isSuperadmin) return
+    if (user.id === currentUser?.id) {
+      setError('You cannot delete your own account.')
+      return
+    }
+
+    const label = user.name || user.email || 'this staff account'
+    if (!window.confirm(`Delete ${label}? This removes their backend login permanently.`)) return
+
+    setError('')
+    setSuccess('')
+    setDeletingStaffId(user.id)
+
+    try {
+      const API_BASE = getApiBaseUrl()
+      const res = await fetch(`${API_BASE}/admin/staff/${user.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: pb.authStore.token },
+      })
+      const data = await parseApiResponse(res)
+      if (!res.ok) throw new Error(data.error || 'Failed to delete staff account')
+
+      await refreshUsersList()
+      setCustomersList((prev) => prev.filter((c) => c.id !== user.id))
+      showToast(`Staff account ${data.deleted?.email || user.email} deleted.`)
+    } catch (err) {
+      console.error('Failed to delete staff account:', err)
+      setError(err?.message || 'Failed to delete staff account.')
+    } finally {
+      setDeletingStaffId(null)
     }
   }
 
@@ -987,6 +1221,8 @@ export default function BackendDashboard() {
 
 
   // Filter & Search computation
+  const normalizeStatus = (status) => String(status || '').toLowerCase().replace(/_/g, ' ').trim()
+
   const filteredBookings = bookings.filter((b) => {
     const matchesSearch =
       b.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -994,9 +1230,13 @@ export default function BackendDashboard() {
       (b.phone && b.phone.includes(searchQuery)) ||
       (b.location && b.location.toLowerCase().includes(searchQuery.toLowerCase()))
 
+    const bookingStatus = normalizeStatus(b.status)
+    const filterStatus = normalizeStatus(statusFilter)
+
     const matchesStatus =
       statusFilter === 'All' ||
-      String(b.status).toLowerCase().replace('_', ' ') === statusFilter.toLowerCase().replace('_', ' ')
+      bookingStatus === filterStatus ||
+      (filterStatus === 'pending' && ['pending', 'unpaid', 'inspection required'].includes(bookingStatus))
 
     return matchesSearch && matchesStatus
   })
@@ -1005,7 +1245,7 @@ export default function BackendDashboard() {
   const stats = {
     total: bookings.length,
     revenue: bookings.reduce((sum, b) => sum + (Number(b.price) || 0), 0),
-    pending: bookings.filter(b => ['pending', 'unpaid', ''].includes(String(b.status).toLowerCase())).length,
+    pending: bookings.filter(b => ['pending', 'unpaid', '', 'inspection required'].includes(normalizeStatus(b.status))).length,
     scheduled: bookings.filter(b => String(b.status).toLowerCase() === 'scheduled').length,
     inProgress: bookings.filter(b => ['in_progress', 'ongoing'].includes(String(b.status).toLowerCase())).length,
     completed: bookings.filter(b => String(b.status).toLowerCase() === 'completed').length,
@@ -1223,7 +1463,7 @@ export default function BackendDashboard() {
           <div className="rounded-xl border border-eco/25 bg-eco/10 p-4 text-xs font-semibold text-forest flex flex-wrap justify-between items-center gap-3 ring-1 ring-eco/10">
             <div className="flex items-center gap-2.5">
               <span className="text-base animate-pulse">🔔</span>
-              <span>Enable native system notifications to receive instant alert popups when new bookings, leads, or WhatsApp messages arrive.</span>
+              <span>Enable push notifications to receive booking, lead, and WhatsApp alerts even when the app is closed.</span>
             </div>
             <button
               onClick={requestNotificationPermission}
@@ -1256,7 +1496,7 @@ export default function BackendDashboard() {
           >
             📍 Service Leads ({leadsList.length})
           </button>
-          {(currentUser.role === 'admin' || currentUser.role === 'superadmin') && (
+          {isAdminOrSuperadmin && (
             <>
               <button
                 onClick={() => setActiveTab('staff')}
@@ -1545,141 +1785,109 @@ export default function BackendDashboard() {
               </div>
             )}
           </div>
-        ) : activeTab === 'staff' && (currentUser.role === 'admin' || currentUser.role === 'superadmin') ? (
-          /* System User Roles Manager (Admin/Superadmin Only) */
-          <div className="space-y-8 font-sans">
-            {currentUser.role === 'superadmin' && (
-              <div className="bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
-                <h3 className="font-serif text-base font-bold text-forest mb-4">Add Staff / User Account</h3>
-                <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                  <label className="grid gap-1 text-xs font-semibold text-forest">
-                    <span>Name</span>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Full Name"
-                      value={newUserName}
-                      onChange={(e) => setNewUserName(e.target.value)}
-                      className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-xs h-9"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-xs font-semibold text-forest">
-                    <span>Email</span>
-                    <input
-                      type="email"
-                      required
-                      placeholder="staff@pestyfi.com"
-                      value={newUserEmail}
-                      onChange={(e) => setNewUserEmail(e.target.value)}
-                      className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-xs h-9"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-xs font-semibold text-forest">
-                    <span>Password</span>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Min 8 characters"
-                      value={newUserPassword}
-                      onChange={(e) => setNewUserPassword(e.target.value)}
-                      className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-xs h-9"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-xs font-semibold text-forest">
-                    <span>Contact Phone</span>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="Min 10 digits"
-                      value={newUserPhone}
-                      onChange={(e) => setNewUserPhone(e.target.value)}
-                      className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink text-xs h-9"
-                    />
-                  </label>
-                  <div className="flex gap-2 items-end md:h-9">
-                    <label className="grid gap-1 text-xs font-semibold text-forest flex-1">
-                      <span>Role</span>
-                      <select
-                        value={newUserRole}
-                        onChange={(e) => setNewUserRole(e.target.value)}
-                        className="rounded-lg border border-black/10 bg-white px-2 py-1 outline-none focus:ring-1 focus:ring-forest text-ink text-xs h-9 cursor-pointer"
-                      >
-                        <option value="customer">Customer</option>
-                        <option value="employee">Employee</option>
-                        <option value="admin">Admin</option>
-                        <option value="superadmin">Super Admin</option>
-                      </select>
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={createUserLoading}
-                      className="btnPrimary h-9 text-xs font-bold px-4 rounded-lg flex-shrink-0"
-                    >
-                      {createUserLoading ? 'Creating...' : 'Create User'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* Staff & Administrative Accounts Table */}
+        ) : activeTab === 'staff' && isAdminOrSuperadmin ? (
+          /* Staff management — view for admin, full control for superadmin */
+          <div className="space-y-6 font-sans">
             <div className="bg-white rounded-2xl border border-black/5 overflow-hidden shadow-sm">
-              <div className="bg-cream/45 border-b border-black/5 py-4 px-6">
-                <h2 className="font-serif text-base font-bold text-forest">Staff & Administrative Accounts</h2>
-                <p className="text-xs text-ink/50 mt-0.5">Control employee roles, edit systems backend access profiles</p>
+              <div className="bg-cream/45 border-b border-black/5 py-4 px-6 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-serif text-base font-bold text-forest">Staff & Administrative Accounts</h2>
+                  <p className="text-xs text-ink/50 mt-0.5">
+                    {isSuperadmin
+                      ? 'Create, edit, and delete staff logins and manage backend access roles'
+                      : 'View staff accounts. Create and edit access requires Super Administrator privileges.'}
+                  </p>
+                </div>
+                {isSuperadmin && (
+                  <button
+                    type="button"
+                    onClick={openCreateStaffModal}
+                    className="btnPrimary h-9 px-4 text-xs font-bold rounded-lg"
+                  >
+                    + Create Staff Account
+                  </button>
+                )}
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-cream/15 border-b border-black/5 text-[10px] font-bold text-forest uppercase tracking-wider">
-                      <th className="py-3 px-6">User Identification</th>
                       <th className="py-3 px-6">Display Name</th>
                       <th className="py-3 px-6">Account Email</th>
                       <th className="py-3 px-6">Contact Phone</th>
-                      <th className="py-3 px-6">Backend Role Access</th>
+                      <th className="py-3 px-6">Backend Role</th>
+                      <th className="py-3 px-6">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/5">
                     {usersList
                       .filter(user => user.role === 'admin' || user.role === 'employee' || user.role === 'superadmin')
                       .map((user) => {
-                        const isOwnAccount = user.id === currentUser.id;
-                        const isTargetSuperadmin = user.role === 'superadmin';
-                        const isCurrentSuperadmin = currentUser.role === 'superadmin';
-                        // Restrict editing role: cannot edit own, and only superadmin can edit role of another superadmin
-                        const canEditRole = !isOwnAccount && (!isTargetSuperadmin || isCurrentSuperadmin);
+                        const isOwnAccount = user.id === currentUser.id
+                        const isTargetSuperadmin = user.role === 'superadmin'
+                        const canEditRole = isSuperadmin && !isOwnAccount && (!isTargetSuperadmin || isSuperadmin)
+                        const canEditDetails = isSuperadmin
+                        const canDeleteStaff = isSuperadmin && !isOwnAccount
 
                         return (
                           <tr key={user.id} className="hover:bg-cream/10 transition">
-                            <td className="py-4 px-6 font-mono text-[10px] text-ink/50">{user.id}</td>
                             <td className="py-4 px-6 font-semibold text-forest">{user.name || 'Not set'}</td>
                             <td className="py-4 px-6 font-semibold">{user.email}</td>
                             <td className="py-4 px-6 text-ink/60">{user.phone || 'Not set'}</td>
                             <td className="py-4 px-6">
                               <select
-                                value={user.role || 'customer'}
+                                value={user.role || 'employee'}
                                 disabled={!canEditRole}
                                 onChange={(e) => handleRoleChange(user.id, e.target.value)}
                                 className="h-8 rounded border border-black/10 bg-white px-2 py-1 text-xs font-semibold text-forest focus:outline-none focus:ring-1 focus:ring-forest cursor-pointer disabled:opacity-50"
                               >
-                                <option value="customer">Customer (Public No-Access)</option>
-                                <option value="employee">Employee (View Bookings, Update Status)</option>
-                                <option value="admin">Administrator (Full Access & Controls)</option>
-                                {(isCurrentSuperadmin || isTargetSuperadmin) && (
-                                  <option value="superadmin">Super Administrator (All Privileges)</option>
-                                )}
+                                <option value="employee">Employee</option>
+                                <option value="admin">Administrator</option>
+                                <option value="superadmin">Super Administrator</option>
                               </select>
                             </td>
+                            <td className="py-4 px-6">
+                              <div className="flex flex-wrap items-center gap-3">
+                                {canEditDetails ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditStaffModal(user)}
+                                    className="text-xs font-bold text-green hover:text-forest hover:underline"
+                                  >
+                                    Edit Details
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-ink/35">View only</span>
+                                )}
+                                {canDeleteStaff && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteStaffAccount(user)}
+                                    disabled={deletingStaffId === user.id}
+                                    className="text-xs font-bold text-urgent hover:underline disabled:opacity-50"
+                                  >
+                                    {deletingStaffId === user.id ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
                           </tr>
-                        );
+                        )
                       })}
                   </tbody>
                 </table>
+                {usersList.filter(u => u.role === 'admin' || u.role === 'employee' || u.role === 'superadmin').length === 0 && (
+                  <div className="py-12 text-center text-ink/45 font-medium">
+                    {isSuperadmin
+                      ? 'No staff accounts yet. Click "Create Staff Account" to add one.'
+                      : 'No staff accounts registered yet.'}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        ) : activeTab === 'customers' && (currentUser.role === 'admin' || currentUser.role === 'superadmin') ? (
+        ) : activeTab === 'customers' && isAdminOrSuperadmin ? (
           /* Registered Customer Accounts Table (Customers Tab Only) */
           <div className="bg-white rounded-2xl border border-black/5 overflow-hidden shadow-sm">
             <div className="bg-cream/45 border-b border-black/5 py-4 px-6">
@@ -2171,6 +2379,112 @@ export default function BackendDashboard() {
                   className="btnPrimary flex-1 py-2 text-xs font-bold"
                 >
                   Save Updates
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Create / Edit Staff Account Modal (Superadmin) */}
+      {isStaffModalOpen && isSuperadmin && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-forest/80 backdrop-blur-sm" onClick={closeStaffModal} />
+
+          <form onSubmit={handleSaveStaffAccount} className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-premium ring-1 ring-black/5 flex flex-col max-h-[90vh]">
+            <div className="h-1.5 w-full bg-eco shrink-0" />
+            <div className="p-6 sm:p-8 flex flex-col overflow-y-auto space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-serif text-xl font-bold text-forest">
+                  {staffModalMode === 'create' ? 'Create Staff Account' : 'Edit Staff Details'}
+                </h3>
+                <button type="button" onClick={closeStaffModal} className="rounded-lg p-1.5 text-ink/40 hover:bg-black/5" aria-label="Close">
+                  ✕
+                </button>
+              </div>
+
+              {error && (
+                <div className="rounded-lg border border-urgent/20 bg-urgent/10 px-3 py-2 text-xs font-semibold text-urgent">
+                  {error}
+                </div>
+              )}
+
+              <label className="grid gap-1 text-xs font-semibold text-forest">
+                <span>Full Name</span>
+                <input
+                  type="text"
+                  required
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  className="rounded-lg border border-black/10 bg-white px-3 py-2 outline-none focus:ring-1 focus:ring-forest text-ink text-sm"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-forest">
+                <span>Email (login)</span>
+                <input
+                  type="email"
+                  required
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  className="rounded-lg border border-black/10 bg-white px-3 py-2 outline-none focus:ring-1 focus:ring-forest text-ink text-sm"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-forest">
+                <span>Contact Phone</span>
+                <input
+                  type="tel"
+                  required
+                  value={newUserPhone}
+                  onChange={(e) => setNewUserPhone(e.target.value)}
+                  className="rounded-lg border border-black/10 bg-white px-3 py-2 outline-none focus:ring-1 focus:ring-forest text-ink text-sm"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-forest">
+                <span>Backend Role</span>
+                <select
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value)}
+                  className="rounded-lg border border-black/10 bg-white px-3 py-2 outline-none focus:ring-1 focus:ring-forest text-ink text-sm cursor-pointer"
+                >
+                  <option value="employee">Employee — view & update bookings</option>
+                  <option value="admin">Administrator — full backend access</option>
+                  <option value="superadmin">Super Administrator — all privileges</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-forest">
+                <span>{staffModalMode === 'create' ? 'Password' : 'New Password (leave blank to keep current)'}</span>
+                <input
+                  type="password"
+                  required={staffModalMode === 'create'}
+                  placeholder={staffModalMode === 'edit' ? 'Optional' : 'Min 8 characters'}
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  className="rounded-lg border border-black/10 bg-white px-3 py-2 outline-none focus:ring-1 focus:ring-forest text-ink text-sm"
+                />
+              </label>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeStaffModal}
+                  className="flex-1 h-10 rounded-lg border border-black/10 text-sm font-semibold text-ink/70 hover:bg-cream/30"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createUserLoading}
+                  className="flex-1 btnPrimary h-10 text-sm font-bold rounded-lg disabled:opacity-70"
+                >
+                  {createUserLoading
+                    ? 'Saving...'
+                    : staffModalMode === 'create'
+                      ? 'Create Account'
+                      : 'Save Changes'}
                 </button>
               </div>
             </div>
@@ -2763,7 +3077,7 @@ function WhatsAppChatsPanel({ usersList = [], customersList = [] }) {
   useEffect(() => {
     const fetchGlobalAiConfig = async () => {
       try {
-        const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+        const API_BASE = getApiBaseUrl()
         const res = await fetch(`${API_BASE}/whatsapp/config`)
         const data = await res.json()
         if (res.ok) {
@@ -2781,7 +3095,7 @@ function WhatsAppChatsPanel({ usersList = [], customersList = [] }) {
     setGlobalAiLoading(true)
     const nextState = !globalAiActive
     try {
-      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const API_BASE = getApiBaseUrl()
       const res = await fetch(`${API_BASE}/whatsapp/config`, {
         method: 'POST',
         headers: {
@@ -2824,7 +3138,7 @@ function WhatsAppChatsPanel({ usersList = [], customersList = [] }) {
     if (!selectedPhone || aiLoading) return
     setAiLoading(true)
     try {
-      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const API_BASE = getApiBaseUrl()
       const res = await fetch(`${API_BASE}/whatsapp/toggle-ai`, {
         method: 'POST',
         headers: {
@@ -3001,7 +3315,7 @@ function WhatsAppChatsPanel({ usersList = [], customersList = [] }) {
 
     setSendLoading(true)
     try {
-      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const API_BASE = getApiBaseUrl()
       const res = await fetch(`${API_BASE}/whatsapp/send-message`, {
         method: 'POST',
         headers: {

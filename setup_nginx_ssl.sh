@@ -22,7 +22,52 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Proxy API and Admin requests to PocketBase
+    # Proxy Admin staff management to Express API
+    location /api/admin/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Proxy WhatsApp requests to Express API
+    location /api/whatsapp/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Proxy Bookings requests to Express API
+    location /api/bookings/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Proxy Services request to Express API
+    location /api/services {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Proxy Facebook requests to Express API
+    location /api/facebook/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Proxy other API requests to PocketBase
     location /api/ {
         proxy_pass http://127.0.0.1:8090;
         proxy_set_header Host $host;
@@ -31,6 +76,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Proxy admin UI to PocketBase
     location /_/ {
         proxy_pass http://127.0.0.1:8090;
         proxy_set_header Host $host;
@@ -39,8 +85,22 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
-
 EOF
+
+echo "=== 2.5. Creating HTTP Basic Auth Credentials ==="
+if [ ! -f /etc/nginx/.htpasswd ]; then
+    echo "Creating default HTTP basic auth password for PocketBase admin dashboard..."
+    sudo dnf install -y httpd-tools || sudo yum install -y httpd-tools || true
+    ADMIN_PASS=$(openssl rand -hex 12)
+    sudo htpasswd -b -c /etc/nginx/.htpasswd admin "$ADMIN_PASS"
+    echo "=== POCKETBASE ADMIN HTTP BASIC AUTH CREDENTIALS ==="
+    echo "Username: admin"
+    echo "Password: $ADMIN_PASS"
+    echo "===================================================="
+else
+    echo "HTTP basic auth password file already exists."
+fi
+
 
 echo "=== 3. Updating PocketBase systemd service to use port 8090 ==="
 sudo tee /etc/systemd/system/pocketbase.service > /dev/null << 'EOF'

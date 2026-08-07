@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react'
 import { pb } from '../lib/pocketbase'
+import {
+  phoneVariants,
+  parsePhoneNumber,
+  formatFullPhone,
+  formatDisplayPhone,
+  isValidLocalPhone,
+} from '../lib/phone'
+import { getApiBaseUrl } from '../lib/api'
+import PhoneInput from './PhoneInput'
 
-export function normalizePhone(phone) {
-  if (!phone) return ''
-  const digits = String(phone).replace(/\D/g, '')
-  if (digits.length === 10) return `91${digits}`
-  return digits
+export { normalizePhone, phoneVariants, formatDisplayPhone, parsePhoneNumber, formatFullPhone } from '../lib/phone'
+
+function buildBookingPhoneFilter(phone, userId) {
+  const filters = []
+  if (userId) filters.push(`userId = "${userId}"`)
+  phoneVariants(phone).forEach((variant) => filters.push(`phone = "${variant}"`))
+  return filters.join(' || ')
 }
 
 export function parseStoredAddress(addressStr) {
@@ -218,7 +229,8 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState('')
   const [editEmail, setEditEmail] = useState('')
-  const [editPhone, setEditPhone] = useState('')
+  const [editPhoneCountry, setEditPhoneCountry] = useState('IN')
+  const [editPhoneLocal, setEditPhoneLocal] = useState('')
   const [editFlat, setEditFlat] = useState('')
   const [editBuilding, setEditBuilding] = useState('')
   const [editSociety, setEditSociety] = useState('')
@@ -227,34 +239,23 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
   const [editPincode, setEditPincode] = useState('')
   const [saveLoading, setSaveLoading] = useState(false)
 
+  // Reset form and search states ONLY when the modal transitions to open
+  useEffect(() => {
+    if (isOpen) {
+      setError('')
+      setSearchResult(null)
+      setSearchPhone('')
+      setIsEditing(false)
+      // Clear bookings to trigger spinner on initial open
+      setBookings([])
+      setLoading(true)
+    }
+  }, [isOpen])
+
   // Fetch user bookings when modal opens and currentUser is available
   useEffect(() => {
-    if (!isOpen) return
-    setError('')
-    setBookings([])
-    setSearchResult(null)
-    setSearchPhone('')
-    setIsEditing(false)
-
-    if (!currentUser) {
-      const cachedPhone = localStorage.getItem('pestyfi_profile_phone')
-      if (cachedPhone) {
-        setLoading(true)
-        pb.collection('bookings')
-          .getList(1, 50, {
-            filter: `phone = "${normalizePhone(cachedPhone)}"`,
-            sort: '-created',
-          })
-          .then((res) => {
-            setBookings(res.items)
-          })
-          .catch((err) => {
-            console.error('Failed to retrieve bookings directly via cache phone:', err)
-          })
-          .finally(() => {
-            setLoading(false)
-          })
-      } else {
+    if (!isOpen || !currentUser) {
+      if (!currentUser && isOpen) {
         setLoading(false)
       }
       return
@@ -262,7 +263,9 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
 
     setEditName(currentUser.name || '')
     setEditEmail(currentUser.email || '')
-    setEditPhone(currentUser.phone || localStorage.getItem('pestyfi_profile_phone') || '')
+    const parsedPhone = parsePhoneNumber(currentUser.phone || localStorage.getItem('pestyfi_profile_phone') || '')
+    setEditPhoneCountry(parsedPhone.countryId)
+    setEditPhoneLocal(parsedPhone.localNumber)
     
     const addrStr = currentUser.address || localStorage.getItem('pestyfi_profile_address') || ''
     const parsed = parseStoredAddress(addrStr)
@@ -273,31 +276,76 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
     setEditCity(parsed.city)
     setEditPincode(parsed.pincode)
 
-    // Retrieve bookings: search by phone number from profile or local storage cache
-    const userPhone = currentUser.phone || localStorage.getItem('pestyfi_profile_phone')
-    if (!userPhone) {
-      setLoading(false)
-      return
+    const loadBookings = async () => {
+      const userPhone = currentUser.phone || localStorage.getItem('pestyfi_profile_phone')
+
+      if (pb.authStore.isValid) {
+        try {
+          await pb.collection('users').authRefresh()
+          if (pb.authStore.model) {
+            const m = pb.authStore.model
+            const u = currentUser
+            const changed = !u ||
+              m.id !== u.id ||
+              m.name !== u.name ||
+              m.email !== u.email ||
+              m.phone !== u.phone ||
+              m.address !== u.address ||
+              m.role !== u.role;
+            if (changed) {
+              onUserUpdate?.(m)
+            }
+          }
+        } catch (refreshErr) {
+          console.warn('Auth refresh failed before loading bookings:', refreshErr)
+        }
+      }
+
+      if (pb.authStore.token) {
+        try {
+          const res = await fetch(`${getApiBaseUrl()}/bookings/my-bookings`, {
+            headers: { Authorization: pb.authStore.token }
+          })
+          const data = await res.json().catch(() => ({}))
+          if (res.ok) {
+            setBookings(data.items || [])
+            return
+          }
+          if (res.status === 401) {
+            setError('Your session has expired. Please log out and sign in again to view bookings.')
+            return
+          }
+        } catch (apiErr) {
+          console.warn('Server booking fetch failed, falling back to direct query:', apiErr)
+        }
+      }
+
+      if (!userPhone) {
+        setError('Add your phone number in profile to view bookings linked to your account.')
+        return
+      }
+
+      if (!pb.authStore.isValid) {
+        setError('Please log in again to view your bookings.')
+        return
+      }
+
+      try {
+        const res = await pb.collection('bookings').getList(1, 50, {
+          filter: buildBookingPhoneFilter(userPhone, currentUser.id),
+          sort: '-created',
+        })
+        setBookings(res.items)
+      } catch (err) {
+        console.error('Failed to retrieve bookings directly:', err)
+        setError('Could not load your bookings. Please try logging in again.')
+      }
     }
 
-    setLoading(true)
-
-    pb.collection('bookings')
-      .getList(1, 50, {
-        filter: `phone = "${normalizePhone(userPhone)}"`,
-        sort: '-created',
-      })
-      .then((res) => {
-        setBookings(res.items)
-      })
-      .catch((err) => {
-        console.error('Failed to retrieve bookings directly:', err)
-        setError('Booking retrieval via phone search failed. Please use the lookup tool below if needed.')
-      })
-      .finally(() => {
-        setLoading(false)
-      })
-  }, [isOpen, currentUser])
+    loadBookings().finally(() => {
+      setLoading(false)
+    })
+  }, [isOpen, currentUser, onUserUpdate])
 
   if (!isOpen) return null
 
@@ -311,7 +359,7 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
 
     try {
       const res = await pb.collection('bookings').getList(1, 50, {
-        filter: `phone = "${normalizePhone(searchPhone)}"`,
+        filter: buildBookingPhoneFilter(searchPhone, currentUser?.id),
         sort: '-created',
       })
       setSearchResult(res.items)
@@ -333,9 +381,9 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
     setSaveLoading(true)
     setError('')
 
-    const phoneDigitCount = editPhone.replace(/\D/g, '').length
-    if (editPhone && phoneDigitCount < 10) {
-      setError('Please enter a valid contact number with at least 10 digits.')
+    const phoneDigitCount = editPhoneLocal.replace(/\D/g, '').length
+    if (editPhoneLocal && !isValidLocalPhone(editPhoneCountry, editPhoneLocal)) {
+      setError('Please enter a valid contact number for the selected country.')
       setSaveLoading(false)
       return
     }
@@ -352,11 +400,10 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
 
     // Save locally immediately to guarantee availability in the Booking Wizard prefill
     localStorage.setItem('pestyfi_profile_address', serializedAddress)
-    localStorage.setItem('pestyfi_profile_phone', editPhone)
+    localStorage.setItem('pestyfi_profile_phone', formatFullPhone(editPhoneCountry, editPhoneLocal))
 
     try {
-      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
-      const updateRes = await fetch(`${API_BASE}/whatsapp/update-profile`, {
+      const updateRes = await fetch(`${getApiBaseUrl()}/whatsapp/update-profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -366,7 +413,7 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
           userId: currentUser.id,
           name: editName.trim(),
           email: editEmail.trim(),
-          phone: editPhone,
+          phone: formatFullPhone(editPhoneCountry, editPhoneLocal),
           address: serializedAddress
         })
       })
@@ -406,7 +453,9 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
 
   const storedAddressStr = currentUser?.address || localStorage.getItem('pestyfi_profile_address') || ''
   const displayAddress = formatAddress(parseStoredAddress(storedAddressStr)) || 'Not set'
-  const displayPhone = currentUser?.phone || editPhone || localStorage.getItem('pestyfi_profile_phone') || 'Not set'
+  const displayPhone = formatDisplayPhone(
+    currentUser?.phone || localStorage.getItem('pestyfi_profile_phone') || formatFullPhone(editPhoneCountry, editPhoneLocal)
+  ) || 'Not set'
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
@@ -468,6 +517,9 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
                   onClick={() => {
                     if (window.confirm("Are you sure you want to request data deletion? Your profile, addresses, and third-party links will be permanently deleted.")) {
                       pb.authStore.clear()
+                      localStorage.removeItem('pestyfi_profile_phone')
+                      localStorage.removeItem('pestyfi_profile_address')
+                      localStorage.removeItem('pestyfi_booking_statuses')
                       onClose()
                       window.history.pushState({}, '', '/deletion-status?id=acc-del-' + Math.random().toString(36).substring(2, 10))
                       window.dispatchEvent(new PopStateEvent('popstate'))
@@ -507,14 +559,14 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
               </label>
 
               <label className="grid gap-1 text-xs font-semibold text-forest">
-                <span>Contact Phone (Minimum 10 digits)</span>
-                <input
-                  type="tel"
-                  placeholder="Enter contact phone"
+                <span>Contact Phone</span>
+                <PhoneInput
+                  theme="profile"
+                  countryId={editPhoneCountry}
+                  localNumber={editPhoneLocal}
+                  onCountryChange={setEditPhoneCountry}
+                  onLocalNumberChange={setEditPhoneLocal}
                   required
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  className="rounded-lg border border-black/10 bg-white px-3 py-1.5 outline-none focus:ring-1 focus:ring-forest text-ink"
                 />
               </label>
 
@@ -719,31 +771,6 @@ export default function ProfileModal({ isOpen, onClose, currentUser, onUserUpdat
               </div>
             )}
           </div>
-
-          {/* Fallback Order Lookup */}
-          <form onSubmit={handlePhoneLookup} className="border-t border-black/5 pt-4 shrink-0">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-forest/70 mb-2">Manual Booking Search</h5>
-            <p className="text-[11px] text-ink/55 leading-relaxed mb-3">
-              Booked under a different phone number or can't see your order? Enter the booking phone number below to fetch it.
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="tel"
-                placeholder="Enter booking phone number"
-                value={searchPhone}
-                onChange={(e) => setSearchPhone(e.target.value)}
-                className="flex-1 rounded-xl border border-black/10 bg-cream/10 px-3.5 py-2 text-xs font-semibold text-forest outline-none ring-offset-white transition focus:ring-2 focus:ring-forest focus:border-transparent placeholder:text-ink/30"
-              />
-              <button
-                type="submit"
-                disabled={searchLoading || !searchPhone.trim()}
-                className="btnPrimary px-4 py-2 text-xs font-bold disabled:opacity-50 shrink-0"
-              >
-                {searchLoading ? 'Searching...' : 'Find Order'}
-              </button>
-            </div>
-          </form>
-
         </div>
       </div>
     </div>

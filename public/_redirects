@@ -1,2 +1,3 @@
 /oauth-callback.html  /oauth-callback.html  200
+/api/*  https://pestyfi.com/api/:splat  200!
 /*                    /index.html           200

@@ -1,5 +1,5 @@
-// Service Worker for Pestyfi PWA Notifications Support
-self.addEventListener('install', (event) => {
+// Service Worker for Pestyfi PWA — background push notifications
+self.addEventListener('install', () => {
   self.skipWaiting()
 })
 
@@ -7,41 +7,41 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim())
 })
 
-// Listen to push events if you use Web Push protocol
 self.addEventListener('push', (event) => {
   let data = {}
   try {
     data = event.data ? event.data.json() : {}
-  } catch (e) {
+  } catch {
     data = { message: event.data ? event.data.text() : '' }
   }
 
-  const title = data.title || 'Pestyfi Notification'
+  const title = data.title || 'Pestyfi'
   const options = {
-    body: data.message || '',
+    body: data.message || data.body || '',
     icon: '/apple-touch-icon.png',
-    badge: '/favicon.svg',
-    data: data.url || '/'
+    badge: '/icon-192.png',
+    tag: data.tag || 'pestyfi-alert',
+    renotify: true,
+    data: { url: data.url || '/' },
   }
+
   event.waitUntil(self.registration.showNotification(title, options))
 })
 
-// Handle notification click to focus/open the PWA app
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
+  const targetUrl = new URL(event.notification.data?.url || '/', self.location.origin).href
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      if (clientList.length > 0) {
-        let client = clientList[0]
-        for (let i = 0; i < clientList.length; i++) {
-          if (clientList[i].focused) {
-            client = clientList[i]
-            break
-          }
+      for (const client of clientList) {
+        if ('focus' in client) {
+          return client.focus()
         }
-        return client.focus()
       }
-      return self.clients.openWindow('/')
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl)
+      }
     })
   )
 })

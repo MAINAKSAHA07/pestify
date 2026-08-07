@@ -2,31 +2,45 @@ import { useState, useEffect, useRef } from 'react'
 import { pb } from '../lib/pocketbase'
 import { SERVICE_RATES, SERVICES } from '../data/content'
 import { APPROVED_PINCODES } from '../data/pincodes'
+import { getApiBaseUrl } from '../lib/api'
 import { parseStoredAddress, formatAddress } from './ProfileModal'
+import PhoneInput from './PhoneInput'
+import {
+  parsePhoneNumber,
+  formatFullPhone,
+  formatDisplayPhone,
+  isValidLocalPhone,
+} from '../lib/phone'
+import { bookStepFromSlug, slugFromBookStep } from '../lib/routing'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 
-const normalizePhone = (p) => {
-  if (!p) return ''
-  const digits = String(p).replace(/\D/g, '')
-  if (digits.length === 10) return `91${digits}`
-  return digits
-}
-
-export default function BookingWizard({ currentUser, locationInfo, services: customServices, rates: customRates }) {
+export default function BookingWizard({
+  currentUser,
+  locationInfo,
+  services: customServices,
+  rates: customRates,
+  bookSlug = 'service',
+  initialServiceId = null,
+  onBookRouteChange,
+}) {
   const finalServices = customServices || SERVICES
   const finalRates = customRates || SERVICE_RATES
 
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(() => {
+    const mapped = bookStepFromSlug(bookSlug)
+    return typeof mapped === 'number' ? mapped : 1
+  })
   const [duration, setDuration] = useState('one-time')
-  const [pest, setPest] = useState('cockroach')
-  const [service, setService] = useState('cockroach')
+  const [pest, setPest] = useState(() => initialServiceId || 'cockroach')
+  const [service, setService] = useState(() => initialServiceId || 'cockroach')
   const [propertyType, setPropertyType] = useState('residential')
   const [bhkSize, setBhkSize] = useState('1BHK')
   const [extraRooms, setExtraRooms] = useState(0)
 
   const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState('')
+  const [phoneCountry, setPhoneCountry] = useState('IN')
+  const [phoneLocal, setPhoneLocal] = useState('')
   
   // Structured Address fields matching ProfileModal
   const [flat, setFlat] = useState('')
@@ -60,6 +74,13 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
 
   const dateInputRef = useRef(null)
 
+  // Prefill from SEO service landing URLs (/services/cockroach-pest-control)
+  useEffect(() => {
+    if (!initialServiceId) return
+    setService(initialServiceId)
+    setPest(initialServiceId)
+  }, [initialServiceId])
+
   const handleOpenDatePicker = () => {
     if (dateInputRef.current) {
       try {
@@ -86,22 +107,50 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
   const [error, setError] = useState('')
   const [successData, setSuccessData] = useState(null)
 
+  const fullPhone = formatFullPhone(phoneCountry, phoneLocal)
+
+  const updateBookRoute = (nextStep, options = {}) => {
+    const slug = slugFromBookStep(nextStep, {
+      needsInspection,
+      ...options,
+    })
+    onBookRouteChange?.(slug)
+  }
+
+  const goToStep = (nextStep) => {
+    setStep(nextStep)
+    updateBookRoute(nextStep)
+  }
+
+  useEffect(() => {
+    const mapped = bookStepFromSlug(bookSlug)
+    if (typeof mapped === 'number' && mapped !== step) {
+      setStep(mapped)
+    }
+  }, [bookSlug])
+
   // Auto-fill details if user is logged in or profile has address
   useEffect(() => {
+    const applyPhone = (storedPhone) => {
+      const parsed = parsePhoneNumber(storedPhone)
+      setPhoneCountry(parsed.countryId)
+      setPhoneLocal(parsed.localNumber)
+    }
+
     if (currentUser) {
       setFullName(currentUser.name || '')
       if (currentUser.phone) {
-        setPhone(currentUser.phone)
+        applyPhone(currentUser.phone)
       } else {
         const savedPhone = localStorage.getItem('pestyfi_profile_phone')
         if (savedPhone) {
-          setPhone(savedPhone)
+          applyPhone(savedPhone)
         }
       }
     } else {
       const savedPhone = localStorage.getItem('pestyfi_profile_phone')
       if (savedPhone) {
-        setPhone(savedPhone)
+        applyPhone(savedPhone)
       }
     }
 
@@ -173,12 +222,12 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
     e.preventDefault()
     setError('')
     if (step === 2) {
-      if (!fullName.trim() || !phone.trim() || !pincode.trim()) {
+      if (!fullName.trim() || !phoneLocal.trim() || !pincode.trim()) {
         setError('Please fill in your name, contact phone, and PIN code.')
         return
       }
-      if (!/^\+?[0-9\s-]{8,}$/.test(phone) || phone.replace(/\D/g, '').length < 10) {
-        setError('Please enter a valid phone number with at least 10 digits.')
+      if (!isValidLocalPhone(phoneCountry, phoneLocal)) {
+        setError('Please enter a valid phone number for the selected country.')
         return
       }
       const cleanPincode = pincode.trim()
@@ -203,7 +252,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
         // Log out-of-service lead in PocketBase
         pb.collection('leads').create({
           fullName,
-          phone,
+          phone: fullPhone,
           location: `OUT_OF_SERVICE: ${cleanPincode} (${currentAddr})`
         }).catch(err => console.error('Failed to register out-of-service lead:', err))
         
@@ -223,24 +272,28 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
         pincode: cleanPincode
       }
       localStorage.setItem('pestyfi_profile_address', JSON.stringify(addressData))
-      localStorage.setItem('pestyfi_profile_phone', phone)
+      localStorage.setItem('pestyfi_profile_phone', fullPhone)
     }
-    setStep(step + 1)
+    goToStep(step + 1)
   }
 
   const handlePrevStep = () => {
     setError('')
-    setStep(step - 1)
+    goToStep(step - 1)
   }
 
   const autoRegister = async (bookingRecord) => {
     try {
-      const API_BASE = import.meta.env.VITE_WHATSAPP_API_URL || '/api'
+      const API_BASE = getApiBaseUrl()
+      const headers = { 'Content-Type': 'application/json' }
+      if (pb.authStore.token) {
+        headers['Authorization'] = pb.authStore.token
+      }
       await fetch(`${API_BASE}/bookings/auto-register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
-          phone,
+          phone: fullPhone,
           fullName,
           email: localStorage.getItem('pestyfi_profile_email') || '',
           flat,
@@ -272,21 +325,39 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
     if (needsInspection) {
       setLoading(true)
       try {
-        const record = await pb.collection('bookings').create({
-          fullName,
-          phone: normalizePhone(phone),
-          location,
-          service: `${currentRate.label} (${duration === 'annual' ? 'Annual Plan' : 'One-Time'})`,
-          bhkSize: propertyType === 'commercial' ? 'Commercial' : bhkSize,
-          extraRooms: propertyType === 'commercial' ? 0 : extraRooms,
-          price: 0,
-          paymentMethod: 'home_inspection',
-          status: 'Inspection Required',
-          paymentId: '',
-          preferredDate,
-          preferredTime,
-          propertyType,
+        const API_BASE = getApiBaseUrl()
+        const response = await fetch(`${API_BASE}/bookings/create-inspection`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': pb.authStore.token || ''
+          },
+          body: JSON.stringify({
+            fullName,
+            phone: fullPhone,
+            location,
+            service: `${currentRate.label} (${duration === 'annual' ? 'Annual Plan' : 'One-Time'})`,
+            bhkSize: propertyType === 'commercial' ? 'Commercial' : bhkSize,
+            extraRooms: propertyType === 'commercial' ? 0 : extraRooms,
+            preferredDate,
+            preferredTime,
+            propertyType,
+            email: localStorage.getItem('pestyfi_profile_email') || '',
+            flat,
+            building,
+            society,
+            area,
+            city,
+            pincode
+          })
         })
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}))
+          throw new Error(errData.error || 'Failed to submit inspection request')
+        }
+
+        const { record } = await response.json()
 
         // Sync back to profile in PocketBase if logged in
         if (currentUser) {
@@ -300,7 +371,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
               pincode: pincode.trim()
             }
             await pb.collection('users').update(currentUser.id, {
-              phone: normalizePhone(phone),
+              phone: fullPhone,
               address: JSON.stringify(addressData),
             })
           } catch (pErr) {
@@ -310,8 +381,9 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
 
         await autoRegister(record)
         setSuccessData(record)
+        updateBookRoute(step, { isSuccess: true, needsInspection: true })
       } catch (err) {
-        console.error('Error creating inspection booking in PocketBase:', err)
+        console.error('Error creating inspection booking:', err)
         setError(err?.message || 'Failed to book your inspection. Please try again.')
       } finally {
         setLoading(false)
@@ -331,6 +403,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
     }
 
     setLoading(true)
+    onBookRouteChange?.('payment')
 
     const options = {
       key: keyId,
@@ -341,21 +414,41 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
       image: '/favicon.svg',
       handler: async function (response) {
         try {
-          const record = await pb.collection('bookings').create({
-            fullName,
-            phone: normalizePhone(phone),
-            location,
-            service: `${currentRate.label} (${duration === 'annual' ? 'Annual Plan' : 'One-Time'})`,
-            bhkSize: propertyType === 'commercial' ? 'Commercial' : bhkSize,
-            extraRooms: propertyType === 'commercial' ? 0 : extraRooms,
-            price: total,
-            paymentMethod: 'razorpay',
-            status: 'paid',
-            paymentId: response.razorpay_payment_id,
-            preferredDate,
-            preferredTime,
-            propertyType,
+          const API_BASE = getApiBaseUrl()
+          const verifyRes = await fetch(`${API_BASE}/bookings/verify-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': pb.authStore.token || ''
+            },
+            body: JSON.stringify({
+              paymentId: response.razorpay_payment_id,
+              fullName,
+              phone: fullPhone,
+              location,
+              service: `${currentRate.label} (${duration === 'annual' ? 'Annual Plan' : 'One-Time'})`,
+              bhkSize: propertyType === 'commercial' ? 'Commercial' : bhkSize,
+              extraRooms: propertyType === 'commercial' ? 0 : extraRooms,
+              price: total,
+              preferredDate,
+              preferredTime,
+              propertyType,
+              email: localStorage.getItem('pestyfi_profile_email') || '',
+              flat,
+              building,
+              society,
+              area,
+              city,
+              pincode
+            })
           })
+
+          if (!verifyRes.ok) {
+            const errData = await verifyRes.json().catch(() => ({}))
+            throw new Error(errData.error || 'Payment verification failed')
+          }
+
+          const { record } = await verifyRes.json()
 
           // Sync back to profile in PocketBase if logged in
           if (currentUser) {
@@ -369,7 +462,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
                 pincode: pincode.trim()
               }
               await pb.collection('users').update(currentUser.id, {
-                phone: normalizePhone(phone),
+                phone: fullPhone,
                 address: JSON.stringify(addressData),
               })
             } catch (pErr) {
@@ -379,8 +472,9 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
 
           await autoRegister(record)
           setSuccessData(record)
+          updateBookRoute(step, { isSuccess: true, needsInspection: false })
         } catch (err) {
-          console.error('Error creating booking in PocketBase:', err)
+          console.error('Error creating booking:', err)
           setError(err?.message || `Payment succeeded (ID: ${response.razorpay_payment_id}) but we failed to record your booking. Please contact support.`)
         } finally {
           setLoading(false)
@@ -388,7 +482,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
       },
       prefill: {
         name: fullName,
-        contact: normalizePhone(phone),
+        contact: fullPhone,
         email: currentUser?.email || '',
       },
       theme: {
@@ -397,16 +491,19 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
       modal: {
         ondismiss: function () {
           setLoading(false)
+          onBookRouteChange?.('checkout')
         }
       }
     }
 
     try {
+      onBookRouteChange?.('payment-processing')
       const rzp = new window.Razorpay(options)
       rzp.on('payment.failed', function (resp) {
         console.error('Payment failed:', resp.error)
         setError(resp.error.description || 'Payment transaction failed. Please try again.')
         setLoading(false)
+        onBookRouteChange?.('payment')
       })
       rzp.open()
     } catch (err) {
@@ -421,6 +518,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
     setExtraRooms(0)
     setError('')
     setSuccessData(null)
+    updateBookRoute(1)
   }
 
   if (successData) {
@@ -452,9 +550,9 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
             <div><span className="text-cream/50">Size:</span> {bhkSize} {extraRooms > 0 && `(+ ${extraRooms} extra room${extraRooms > 1 ? 's' : ''})`}</div>
           )}
           <div><span className="text-cream/50">Service Address:</span> {location}</div>
-          <div><span className="text-cream/50">Contact:</span> {phone}</div>
+          <div><span className="text-cream/50">Contact:</span> {formatDisplayPhone(fullPhone)}</div>
           {isInspection && (
-            <div><span className="text-cream/50">Estimated Cost:</span> ₹{total.toLocaleString('en-IN')} (to be verified post-inspection)</div>
+            <div><span className="text-cream/50">Service Cost:</span> TBD Post-Inspection</div>
           )}
         </div>
 
@@ -589,8 +687,12 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
               </span>
               <p>
                 {duration === 'annual'
-                  ? `Annual services feature comprehensive coverage for your home for a rate of ₹${total.toLocaleString('en-IN')}, with no additional extra room fees.`
-                  : `This comprehensive package covers cockroaches, ants, termites, bed bugs, and mosquitoes for a rate of ₹${total.toLocaleString('en-IN')}.`}
+                  ? (needsInspection 
+                      ? 'Annual services feature comprehensive year-round coverage for your home. Rate to be finalized post-inspection.'
+                      : `Annual services feature comprehensive coverage for your home for a rate of ₹${total.toLocaleString('en-IN')}, with no additional extra room fees.`)
+                  : (needsInspection
+                      ? 'This comprehensive package covers cockroaches, ants, termites, bed bugs, and mosquitoes. Rate to be finalized post-inspection.'
+                      : `This comprehensive package covers cockroaches, ants, termites, bed bugs, and mosquitoes for a rate of ₹${total.toLocaleString('en-IN')}.`)}
               </p>
             </div>
           ) : null}
@@ -647,7 +749,7 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
 
           {/* Dynamic Summary Panel */}
           <div className="bg-forest/65 rounded-xl p-4 border border-white/10 space-y-2 text-xs text-cream/90">
-            {propertyType === 'commercial' ? (
+            {needsInspection ? (
               <>
                 <div className="flex justify-between font-bold text-sm text-cream">
                   <span>Service Rate:</span>
@@ -709,13 +811,13 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
 
           <label className="grid gap-1.5 text-sm">
             <span className="font-semibold text-cream">Phone Number</span>
-            <input
+            <PhoneInput
+              theme="dark"
+              countryId={phoneCountry}
+              localNumber={phoneLocal}
+              onCountryChange={setPhoneCountry}
+              onLocalNumberChange={setPhoneLocal}
               required
-              type="tel"
-              placeholder="+91 XXXXX XXXXX"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="h-11 w-full rounded-xl bg-white/10 px-3 text-cream placeholder:text-cream/50 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-amber"
             />
           </label>
 
@@ -875,31 +977,41 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
             )}
             {extraRooms > 0 && <div className="flex justify-between"><span>Extra Rooms:</span> <span>{extraRooms}</span></div>}
             
-            {propertyType !== 'commercial' && (
+            {needsInspection ? (
+              <>
+                <div className="flex justify-between font-bold text-sm text-cream mt-1 border-t border-white/10 pt-1.5">
+                  <span>Service Rate:</span>
+                  <span className="text-amber font-semibold">TBD Post-Inspection</span>
+                </div>
+                <div className="border-t border-white/10 pt-1.5 flex justify-between font-bold text-sm text-amber">
+                  <span>Inspection Fee:</span>
+                  <span className="text-eco font-bold">FREE</span>
+                </div>
+              </>
+            ) : (
               <>
                 <div className="flex justify-between mt-1 text-[11px] text-cream/70">
                   <span>Subtotal:</span>
                   <span>₹{subtotal.toLocaleString('en-IN')}</span>
                 </div>
-                {!needsInspection && discount > 0 && (
+                {discount > 0 && (
                   <div className="flex justify-between text-[11px] text-eco font-medium">
                     <span>Prepaid Discount (20% OFF):</span>
                     <span>-₹{discount.toLocaleString('en-IN')}</span>
                   </div>
                 )}
+                <div className="flex justify-between text-sm font-bold text-cream border-t border-white/10 pt-1.5">
+                  <span>Net Total:</span>
+                  <span>₹{total.toLocaleString('en-IN')}</span>
+                </div>
               </>
             )}
-
-            <div className="flex justify-between text-sm font-bold text-cream border-t border-white/10 pt-1.5">
-              <span>{needsInspection ? 'Estimated Cost:' : 'Net Total:'}</span>
-              <span>₹{total.toLocaleString('en-IN')}</span>
-            </div>
           </div>
 
           <div className="bg-forest/30 border border-white/5 rounded-xl p-3 text-xs text-cream/90 space-y-1.5">
             <h4 className="font-semibold text-cream/70 border-b border-white/10 pb-1 mb-1.5">Contact & Location</h4>
             <div><span className="text-cream/50">Name:</span> {fullName}</div>
-            <div><span className="text-cream/50">Phone:</span> {phone}</div>
+            <div><span className="text-cream/50">Phone:</span> {formatDisplayPhone(fullPhone)}</div>
             <div><span className="text-cream/50">Location:</span> {location}</div>
           </div>
 
@@ -946,6 +1058,17 @@ export default function BookingWizard({ currentUser, locationInfo, services: cus
               )}
             </button>
           </div>
+
+          {!needsInspection && (
+            <div className="flex items-center justify-center gap-1.5 text-[10px] text-cream/50 font-medium pt-2">
+              <span>🔒 All payments are secured by</span>
+              <svg className="h-3.5 w-auto" fill="#3395FF" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <title>Razorpay</title>
+                <path d="M22.436 0l-11.91 7.773-1.174 4.276 6.625-4.297L11.65 24h4.391l6.395-24zM14.26 10.098L3.389 17.166 1.564 24h9.008l3.688-13.902Z"/>
+              </svg>
+              <span className="font-bold text-[#3395FF]">Razorpay</span>
+            </div>
+          )}
         </div>
       )}
     </div>
